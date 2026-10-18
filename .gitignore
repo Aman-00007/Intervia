@@ -1,0 +1,79 @@
+# ==========================================
+# 1. ENVIRONMENT & SECRETS (NEVER COMMIT)
+# ==========================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ==========================================
+# 2. PYTHON & FASTAPI BACKEND
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+.venv/
+env/
+ENV/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# 3. REACT / VITE / PWA FRONTEND (FOR LATER)
+# ==========================================
+node_modules/
+frontend/dist/
+frontend/dev-dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# 4. LOCAL MEDIA, REPORTS & DOCKER VOLUMES
+# ==========================================
+*.webm
+*.mp4
+*.wav
+*.opus
+*.pdf
+*.docx
+postgres_data/
+redis_data/
+minio_data/
+tmp_uploads/
+temp_reports/
+
+# ==========================================
+# 5. IDE & OS FILES
+# ==========================================
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
