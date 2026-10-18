@@ -1,0 +1,64 @@
+# ============================================================================
+# INTERVIA — ZERO-CONFLICT OWNERSHIP BOUNDARIES
+# ============================================================================
+
+# Shared Root Files (Requires both approvals if modified after Day 1)
+/README.md                                                      @Aman-00007 @devangee20
+/ARCHITECTURE.md                                                @Aman-00007 @devangee20
+/Makefile                                                       @Aman-00007 @devangee20
+/backend/pyproject.toml                                         @Aman-00007 @devangee20
+/backend/src/intervia/main.py                                   @Aman-00007 @devangee20
+
+# ----------------------------------------------------------------------------
+# TRACK B: AMAN (@Aman-00007)
+# Live Workspace, Crypto HMAC, Stage B, Stage D, Media Forensics, Nebius Jobs
+# ----------------------------------------------------------------------------
+/.github/workflows/cd-nebius-deploy.yml                         @Aman-00007
+/docker-compose.yml                                             @Aman-00007
+/infra/docker/worker.Dockerfile                                 @Aman-00007
+/infra/nebius/serverless-jobs.yaml                              @Aman-00007
+/backend/alembic/versions/002_init_interview_ops.py             @Aman-00007
+/backend/src/intervia/core/exceptions.py                        @Aman-00007
+/backend/src/intervia/core/logging.py                           @Aman-00007
+/backend/src/intervia/core/middleware.py                        @Aman-00007
+/backend/src/intervia/core/security/hmac_chain.py               @Aman-00007
+/backend/src/intervia/infrastructure/nebius/job_trigger.py      @Aman-00007
+/backend/src/intervia/infrastructure/nebius/prompts/v1_stage_b_ai_usage_eval.j2 @Aman-00007
+/backend/src/intervia/infrastructure/nebius/prompts/v1_stage_d_timelapse.j2     @Aman-00007
+/backend/src/intervia/infrastructure/sandbox_exec/              @Aman-00007
+/backend/src/intervia/infrastructure/storage/                   @Aman-00007
+/backend/src/intervia/infrastructure/media_forensics/           @Aman-00007
+/backend/src/intervia/domains/stage_b_workspace/                @Aman-00007
+/backend/src/intervia/domains/stage_d_reconciliation/           @Aman-00007
+/backend/src/intervia/workers/job_level2_recon.py               @Aman-00007
+/backend/tests/integration/test_hmac_tamper.py                  @Aman-00007
+/backend/tests/integration/test_offline_reconcile.py            @Aman-00007
+/backend/tests/e2e_cli_simulator.py                             @Aman-00007
+
+# ----------------------------------------------------------------------------
+# TRACK A: DEVANGEE (@devangee20)
+# Privacy Vault, Nebius Router, Stage A, Stage E, PDF/DOCX Reports, DPDP Cron
+# ----------------------------------------------------------------------------
+/.github/workflows/ci-backend-lint-test.yml                     @devangee20
+/infra/docker/api.Dockerfile                                    @devangee20
+/infra/nebius/serverless-endpoint.yaml                          @devangee20
+/infra/local/init-dual-schemas.sql                              @devangee20
+/backend/alembic.ini                                            @devangee20
+/backend/alembic/env.py                                         @devangee20
+/backend/alembic/versions/001_init_identity_vault.py            @devangee20
+/backend/src/intervia/core/config.py                            @devangee20
+/backend/src/intervia/core/database.py                          @devangee20
+/backend/src/intervia/core/security/aes_gcm.py                  @devangee20
+/backend/src/intervia/core/security/jwt_rbac.py                 @devangee20
+/backend/src/intervia/infrastructure/nebius/client.py           @devangee20
+/backend/src/intervia/infrastructure/nebius/model_router.py     @devangee20
+/backend/src/intervia/infrastructure/nebius/prompts/v1_stage_a_questions.j2      @devangee20
+/backend/src/intervia/infrastructure/nebius/prompts/v1_stage_e_student_report.j2 @devangee20
+/backend/src/intervia/infrastructure/nebius/prompts/v1_stage_e_exec_summary.j2   @devangee20
+/backend/src/intervia/infrastructure/privacy/                   @devangee20
+/backend/src/intervia/domains/stage_a_onboarding/               @devangee20
+/backend/src/intervia/domains/stage_e_reporting/                @devangee20
+/backend/src/intervia/workers/job_compile_reports.py            @devangee20
+/backend/src/intervia/workers/job_dpdp_retention.py             @devangee20
+/backend/tests/conftest.py                                      @devangee20
+/backend/tests/integration/test_pii_isolation.py                @devangee20
