@@ -1,27 +1,38 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, UUID4
+from typing import Optional
+from datetime import datetime
 
-# ── REQUEST SCHEMAS (What React sends to FastAPI) ──
+class CodeRunDTO(BaseModel):
+    session_id: UUID4
+    language: str = Field(..., max_length=20)
+    source_code: str = Field(..., max_length=50000)
+    stdin: Optional[str] = Field(default="", max_length=10000)
 
-class CodeRunRequest(BaseModel):
-    """Like a TypeScript interface for the Code Execution POST request."""
-    language: str = Field(..., description="Programming language (e.g., python, cpp23, javascript)")
-    source_code: str = Field(..., description="The candidate's raw code from the Monaco Editor")
-    stdin: str = Field(default="", description="Optional standard input for the code")
-
-
-class SharedAIPromptRequest(BaseModel):
-    """Payload when a student asks the AI Copilot a question."""
-    session_id: str = Field(..., description="The unique ID of the interview session")
-    prompt: str = Field(..., description="The question the student typed to the AI")
-
-
-# ── RESPONSE SCHEMAS (What FastAPI sends back to React) ──
-
-class CodeRunResponse(BaseModel):
-    """The JSON response structure after code finishes running in the sandbox."""
-    language: str
-    version: str
+class CodeRunResponseDTO(BaseModel):
+    submission_id: UUID4
+    passed: bool
+    execution_time_sec: float
+    memory_kb: int
     stdout: str
     stderr: str
-    exit_code: int
-    passed: bool
+    compile_output: str
+
+class SharedAIPromptDTO(BaseModel):
+    session_id: UUID4
+    prompt_text: str = Field(..., min_length=1, max_length=2000)
+    current_code_snapshot: str
+    sandbox_error_context: Optional[str] = None
+
+class SharedAIResponseDTO(BaseModel):
+    chat_id: UUID4
+    response_text: str
+    timestamp: datetime
+
+class GoodUseOfAIScoreDTO(BaseModel):
+    overall_ai_usage_score: int = Field(ge=0, le=100)
+    prompt_clarity_score: int = Field(ge=0, le=100)
+    verification_and_debugging_score: int = Field(ge=0, le=100)
+    autonomy_score: int = Field(ge=0, le=100)
+    classification: str
+    key_observations: list[str]
+    flagged_prompts: list[str]
