@@ -1,38 +1,36 @@
-from datetime import datetime
-from sqlalchemy import Column, DateTime, Integer, String
+import uuid
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Text, Boolean, Float, Integer, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
 from intervia.core.database import OpsBase
 
+class Session(OpsBase):
+    __tablename__ = 'sessions'
+    __table_args__ = {'schema': 'interview_ops'}
 
-class HMACChainLog(OpsBase):
-    """Database table to permanently store the offline security events after Wi-Fi reconnects."""
-    __tablename__ = "hmac_chain_logs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status = Column(String(50), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String(64), index=True, nullable=False)
-    seq = Column(Integer, nullable=False)
-    timestamp_ms = Column(Integer, nullable=False)
-    event_type = Column(String(64), nullable=False)
-    hmac_hash = Column(String(64), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+class CodeSubmission(OpsBase):
+    __tablename__ = 'code_submissions'
+    __table_args__ = {'schema': 'interview_ops'}
 
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey('interview_ops.sessions.id'), nullable=False)
+    language = Column(String(20), nullable=False)
+    source_code = Column(Text, nullable=False)
+    passed = Column(Boolean, nullable=False)
+    execution_time_sec = Column(Float, nullable=False)
+    memory_kb = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
-class MediaChunkMeta(OpsBase):
-    """Database table to point to the uploaded S3 video chunks for the server-side AI to analyze."""
-    __tablename__ = "media_chunk_meta"
+class SharedAIChat(OpsBase):
+    __tablename__ = 'shared_ai_chats'
+    __table_args__ = {'schema': 'interview_ops'}
 
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String(64), index=True, nullable=False)
-    seq = Column(Integer, nullable=False)
-    s3_key = Column(String(255), nullable=False)
-    sha256_hash = Column(String(64), nullable=False)
-
-
-class ReconnectAudit(OpsBase):
-    """Tracks every time a candidate drops offline and reconnects."""
-    __tablename__ = "reconnect_audits"
-
-    id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String(64), index=True, nullable=False)
-    offline_duration_sec = Column(Integer, nullable=False)
-    reconnect_time = Column(DateTime, default=datetime.utcnow)
-    status = Column(String(32), default="PENDING_SYNC")
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(UUID(as_uuid=True), ForeignKey('interview_ops.sessions.id'), nullable=False)
+    prompt = Column(Text, nullable=False)
+    response = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

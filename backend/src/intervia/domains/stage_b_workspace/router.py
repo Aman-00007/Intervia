@@ -1,25 +1,42 @@
-from fastapi import APIRouter, HTTPException
-from intervia.domains.stage_b_workspace.schemas import CodeRunRequest, CodeRunResponse
-from intervia.infrastructure.sandbox_exec.judge0_client import code_runner
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import AsyncGenerator
 
-# This creates an isolated router module (just like const router = express.Router() in Node.js)
-router = APIRouter(prefix="/api/workspace", tags=["Stage B - Live Workspace"])
+from intervia.domains.stage_b_workspace.schemas import CodeRunDTO, CodeRunResponseDTO, SharedAIPromptDTO, SharedAIResponseDTO
+from intervia.domains.stage_b_workspace.service import WorkspaceService
+from intervia.domains.stage_b_workspace.repository import WorkspaceRepository
+from intervia.infrastructure.sandbox_exec.yjs_crdt_hub import yjs_crdt_hub
 
+router = APIRouter(prefix="/v1/workspace", tags=["Stage B: Live Workspace"])
 
-@router.post("/run-code", response_model=CodeRunResponse)
-async def run_student_code(req: CodeRunRequest):
+# Stub for Database session dependency (Track A handles the actual session maker)
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    yield None
+
+def get_workspace_service(db_session: AsyncSession = Depends(get_db_session)) -> WorkspaceService:
+    repo = WorkspaceRepository(db_session)
+    return WorkspaceService(repo)
+
+@router.post("/run", response_model=CodeRunResponseDTO)
+async def run_candidate_code(
+    payload: CodeRunDTO,
+    service: WorkspaceService = Depends(get_workspace_service)
+):
+    """Executes candidate code via Judge0 and logs telemetry."""
+    return await service.execute_code(payload)
+
+@router.post("/ai-chat", response_model=SharedAIResponseDTO)
+async def ask_shared_ai(
+    payload: SharedAIPromptDTO,
+    service: WorkspaceService = Depends(get_workspace_service)
+):
+    """Sends candidate query to Nebius AI and returns strict pedagogical hints."""
+    return await service.handle_ai_chat(payload)
+
+@router.websocket("/ws/yjs/{session_id}")
+async def yjs_websocket_endpoint(websocket: WebSocket, session_id: str):
     """
-    Receives candidate code from the React Monaco Editor, validates it using Pydantic,
-    executes it in the isolated cloud sandbox, and returns the output.
+    Real-time collaborative editing endpoint.
+    Delegates all PyCRDT sync and AST diffing logic to the Day 2 YjsCRDTHub.
     """
-    try:
-        # Pass the validated data straight to the sandbox runner you built in Step 2!
-        result = await code_runner.execute_code(
-            language=req.language,
-            source_code=req.source_code,
-            stdin=req.stdin
-        )
-        return result
-    except Exception as e:
-        # If the cloud sandbox fails or times out, return a clean 500 error
-        raise HTTPException(status_code=500, detail=f"Sandbox execution failed: {str(e)}")
+    await yjs_crdt_hub.handle_websocket(session_id, websocket)
