@@ -1,6 +1,14 @@
+# src/intervia/domains/stage_a_onboarding/repository.py
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from intervia.domains.stage_a_onboarding.models import CandidateIdentity, DPDPConsentRecord, PIITokenVault
+from sqlalchemy.dialects.postgresql import insert
+
+from intervia.domains.stage_a_onboarding.models import (
+    CandidateIdentity, 
+    DPDPConsentRecord, 
+    PIITokenVault,
+    SessionSeed
+)
 from intervia.domains.stage_a_onboarding.schemas import OnboardingRequest
 
 class OnboardingRepository:
@@ -17,7 +25,7 @@ class OnboardingRepository:
             github_username=data.github_username
         )
         self.session.add(candidate)
-        await self.session.flush() # Flushes to get the auto-generated user_id
+        await self.session.flush() 
         return candidate
 
     async def record_dpdp_consent(self, user_id: uuid.UUID, session_id: uuid.UUID, data: OnboardingRequest) -> DPDPConsentRecord:
@@ -40,3 +48,14 @@ class OnboardingRepository:
         )
         self.session.add(vault_entry)
         return vault_entry
+
+    async def save_session_seed(self, session_id: uuid.UUID, seed: str) -> dict:
+        """Saves the offline server seed for Stage D verification."""
+        stmt = insert(SessionSeed).values(session_id=session_id, server_seed=seed)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['session_id'],
+            set_={'server_seed': seed}
+        )
+        await self.session.execute(stmt)
+        await self.session.commit()
+        return {"session_id": session_id, "server_seed": seed}

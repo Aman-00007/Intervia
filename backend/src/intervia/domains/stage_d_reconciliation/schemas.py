@@ -1,32 +1,37 @@
+# src/intervia/domains/stage_d_reconciliation/schemas.py
 from pydantic import BaseModel, Field, UUID4
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
-class HMACLogEntry(BaseModel):
-    sequence_id: int
+# Aligned with service.py verification logic
+class OfflineEventDTO(BaseModel):
+    seq: int
+    timestamp_ms: int
     event_type: str
-    payload_hash: str
-    timestamp: datetime
-    hmac_signature: str
+    hmac_hash: str
+
+class SyncChainRequest(BaseModel):
+    session_id: str
+    offline_duration_sec: int
+    events: List[OfflineEventDTO]
 
 class MediaChunkDTO(BaseModel):
-    chunk_index: int
-    s3_object_key: str
-    start_time: datetime
-    end_time: datetime
-    size_bytes: int
+    session_id: str
+    seq: int
+    s3_key: str
+    sha256_hash: str
 
 class ReconnectSyncPayload(BaseModel):
     session_id: UUID4
     offline_duration_sec: int
     ast_delta: dict
-    logs: List[HMACLogEntry]
+    logs: List[OfflineEventDTO]
     media_chunks: List[MediaChunkDTO]
 
 class Level1AlertDTO(BaseModel):
     session_id: UUID4
-    alert_type: str = Field(..., description="E.g., HMAC_CHAIN_BROKEN, AST_BURST_DETECTED")
-    severity: str = Field(..., description="LOW, MEDIUM, HIGH, CRITICAL")
+    alert_type: str
+    severity: str
     details: str
 
 class TimeLapseSummaryDTO(BaseModel):

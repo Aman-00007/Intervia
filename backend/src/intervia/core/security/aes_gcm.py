@@ -21,7 +21,7 @@ class AESVaultCipher:
         ciphertext = self._aesgcm.encrypt(nonce, plaintext, associated_data=None)
         return nonce + ciphertext
 
-    def decrypt_dict(self, blob: bytes) -> bytes:
+    def decrypt_dict(self, blob: bytes) -> dict:
         """Decrypts a binary blob back into the original Python dictionary."""
         nonce, ciphertext = blob[:12], blob[12:]
         plaintext = self._aesgcm.decrypt(nonce, ciphertext, associated_data=None)
