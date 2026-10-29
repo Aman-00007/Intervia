@@ -72,7 +72,7 @@ function findBestMic(devices: MediaDeviceInfo[]) {
 }
 
 export function ConsentScreen() {
-  const [permissions, setPermissions] = useState([true, true, true, true]);
+  const [permissions, setPermissions] = useState([false, false, false, false]);
   const [message, setMessage] = useState("");
   const [micTesting, setMicTesting] = useState(false);
   const [micTested, setMicTested] = useState(true);
@@ -90,8 +90,8 @@ export function ConsentScreen() {
   const [speechDetected, setSpeechDetected] = useState(false);
   const [deviceError, setDeviceError] = useState<string>("");
 
-  // Facial Proctoring State (1 Person required)
-  const [faceCount, setFaceCount] = useState<number>(1);
+  // Facial Proctoring State (1 Person required, starts at 0 until verified)
+  const [faceCount, setFaceCount] = useState<number>(0);
   const faceCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Speech Recognition & White-to-Green Word Matching State
@@ -99,6 +99,7 @@ export function ConsentScreen() {
   const [spokenTranscript, setSpokenTranscript] = useState<string>("");
   const [speechMismatch, setSpeechMismatch] = useState<boolean>(false);
   const recognitionRef = useRef<any>(null);
+  const lastVoiceBurstRef = useRef<number>(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -194,6 +195,35 @@ export function ConsentScreen() {
               newBars.push(height);
             }
             setAudioBars(newBars);
+
+            // Real-Time Web Audio Formant Voice Energy & Syllable Cadence Tracker
+            // Voice energy across speech formants (bins 1 to 7: ~300Hz to ~4500Hz)
+            let speechBandSum = 0;
+            const maxVoiceBin = Math.min(bufferLength - 1, 7);
+            for (let i = 1; i <= maxVoiceBin; i++) {
+              speechBandSum += dataArray[i];
+            }
+            const speechBandAvg = speechBandSum / Math.max(1, maxVoiceBin);
+
+            const now = performance.now();
+            // Detect active speech vocalization
+            if ((speechBandAvg > 16 || norm > 12) && !speechMismatch) {
+              // Rate limit advances to natural human speech syllable/word cadence (~210ms)
+              if (now - lastVoiceBurstRef.current > 210) {
+                lastVoiceBurstRef.current = now;
+                setMatchedIndices((prev) => {
+                  if (prev.length < TARGET_WORDS.length) {
+                    const nextIdx = prev.length;
+                    const updated = [...prev, nextIdx];
+                    if (updated.length >= TARGET_WORDS.length) {
+                      setSpeechDetected(true);
+                    }
+                    return updated;
+                  }
+                  return prev;
+                });
+              }
+            }
 
             animFrameRef.current = requestAnimationFrame(updateVisualizer);
           };
@@ -331,7 +361,7 @@ export function ConsentScreen() {
     };
   }, [speechDetected]);
 
-  // Real-time Facial Proctoring (1 Face required, alert on multiple faces)
+  // Real-time Facial Proctoring (1 Face required, alert on multiple faces, alert on face missing/off-center)
   useEffect(() => {
     if (!cameraActive || typeof window === "undefined") return;
     if (!faceCanvasRef.current) {
@@ -348,6 +378,20 @@ export function ConsentScreen() {
           const detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
           const faces = await detector.detect(video);
           if (faces && faces.length !== undefined) {
+            if (faces.length === 0) {
+              setFaceCount(0);
+              return;
+            }
+            // Check if primary face is centered in the camera frame
+            const mainFace = faces[0].boundingBox;
+            const videoWidth = video.videoWidth || 640;
+            const faceCenterX = mainFace.x + mainFace.width / 2;
+            const relX = faceCenterX / videoWidth;
+            // Face cut off on left or right border (< 0.20 or > 0.80)
+            if (relX < 0.20 || relX > 0.80) {
+              setFaceCount(0);
+              return;
+            }
             setFaceCount(faces.length);
             return;
           }
@@ -371,6 +415,13 @@ export function ConsentScreen() {
 
         const skinMask = new Uint8Array(width * height);
         let totalSkin = 0;
+        let centerSkin = 0;
+
+        // Candidate center framing region (middle 56% horizontally, middle 75% vertically)
+        const minCenterX = Math.floor(width * 0.22); // 35
+        const maxCenterX = Math.floor(width * 0.78); // 125
+        const minCenterY = Math.floor(height * 0.12); // 14
+        const maxCenterY = Math.floor(height * 0.88); // 105
 
         for (let y = 0; y < height; y++) {
           for (let x = 0; x < width; x++) {
@@ -385,37 +436,77 @@ export function ConsentScreen() {
             if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) {
               skinMask[y * width + x] = 1;
               totalSkin++;
+              if (x >= minCenterX && x <= maxCenterX && y >= minCenterY && y <= maxCenterY) {
+                centerSkin++;
+              }
             }
           }
         }
 
         const colHist = new Int32Array(width);
         for (let x = 0; x < width; x++) {
-          for (let y = Math.floor(height * 0.15); y < Math.floor(height * 0.85); y++) {
+          for (let y = minCenterY; y < maxCenterY; y++) {
             if (skinMask[y * width + x]) colHist[x]++;
           }
         }
 
-        const peaks: number[] = [];
-        for (let x = 12; x < width - 12; x++) {
-          if (colHist[x] > 16) {
+        // 7-point Gaussian-weighted moving average filter to eliminate ripples from glasses/eyebrows/hair
+        const smoothed = new Float32Array(width);
+        for (let x = 3; x < width - 3; x++) {
+          smoothed[x] =
+            (colHist[x - 3] * 1 +
+              colHist[x - 2] * 2 +
+              colHist[x - 1] * 3 +
+              colHist[x] * 4 +
+              colHist[x + 1] * 3 +
+              colHist[x + 2] * 2 +
+              colHist[x + 3] * 1) /
+            16;
+        }
+
+        // Find candidate peaks across smoothed columns (minimum height > 22)
+        const rawPeaks: number[] = [];
+        for (let x = 16; x < width - 16; x++) {
+          if (smoothed[x] > 22) {
             if (
-              colHist[x] > colHist[x - 1] &&
-              colHist[x] > colHist[x + 1] &&
-              colHist[x] > colHist[x - 2] &&
-              colHist[x] > colHist[x + 2]
+              smoothed[x] >= smoothed[x - 1] &&
+              smoothed[x] >= smoothed[x + 1] &&
+              smoothed[x] > smoothed[x - 2] &&
+              smoothed[x] > smoothed[x + 2]
             ) {
-              if (peaks.length === 0 || x - peaks[peaks.length - 1] > 26) {
-                peaks.push(x);
+              if (rawPeaks.length === 0 || x - rawPeaks[rawPeaks.length - 1] > 20) {
+                rawPeaks.push(x);
               }
             }
           }
         }
 
-        if (totalSkin < 250) {
+        // Validate if two peaks are truly two distinct separate human heads (not cheeks/glasses of 1 person)
+        // Two people in a 160-wide frame MUST be separated by at least 48px with a deep empty background valley
+        let distinctPeopleCount = rawPeaks.length > 0 ? 1 : 0;
+        if (rawPeaks.length >= 2) {
+          for (let i = 0; i < rawPeaks.length - 1; i++) {
+            const p1 = rawPeaks[i];
+            const p2 = rawPeaks[i + 1];
+            if (p2 - p1 >= 48) {
+              let minValley = 999;
+              for (let vx = p1 + 8; vx <= p2 - 8; vx++) {
+                if (smoothed[vx] < minValley) minValley = smoothed[vx];
+              }
+              const lowerPeak = Math.min(smoothed[p1], smoothed[p2]);
+              if (minValley < 10 || minValley < lowerPeak * 0.35) {
+                distinctPeopleCount = 2;
+                break;
+              }
+            }
+          }
+        }
+
+        // Face is absent, moved off to the side, or tilted out of frame
+        if (totalSkin < 250 || centerSkin < 100) {
           setFaceCount(0);
-        } else if (peaks.length >= 2) {
-          setFaceCount(peaks.length);
+        } else if (distinctPeopleCount >= 2) {
+          setFaceCount(2);
         } else {
           setFaceCount(1);
         }
@@ -430,11 +521,14 @@ export function ConsentScreen() {
     setSpokenTranscript("");
     setSpeechDetected(false);
     setSpeechMismatch(false);
+    lastVoiceBurstRef.current = performance.now() + 500;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
         setTimeout(() => {
-          recognitionRef.current?.start();
+          try {
+            recognitionRef.current?.start();
+          } catch { }
         }, 300);
       } catch { }
     }
@@ -445,6 +539,10 @@ export function ConsentScreen() {
   const submit = async () => {
     if (!accepted) {
       setMessage("Please accept all required permissions before continuing.");
+      return;
+    }
+    if (cameraActive && faceCount === 0) {
+      setMessage("Proctoring Alert: Face not visible in camera. Please position your face clearly in the center of the camera frame before continuing.");
       return;
     }
     if (faceCount > 1) {
@@ -666,16 +764,20 @@ export function ConsentScreen() {
                                 </Button>
 
                                 <Button
-                                  className={`agree-continue-btn ${!speechDetected || faceCount > 1 ? "btn-unverified" : ""}`}
+                                  className={`agree-continue-btn ${!accepted || !speechDetected || (cameraActive && faceCount !== 1) ? "btn-unverified" : ""}`}
                                   onClick={() => {
                                     void submit();
                                   }}
                                 >
-                                  {faceCount > 1
-                                    ? "Multiple people in camera frame"
-                                    : speechDetected
-                                      ? "Agree & continue to resume →"
-                                      : "Speak verification sentence to continue →"}
+                                  {!accepted
+                                    ? "Check all permissions to continue →"
+                                    : cameraActive && faceCount === 0
+                                      ? "Face not visible in camera"
+                                      : faceCount > 1
+                                        ? "Multiple people in camera frame"
+                                        : speechDetected
+                                          ? "Agree & continue to resume →"
+                                          : "Speak verification sentence to continue →"}
                                 </Button>
                               </div>
 
@@ -960,8 +1062,21 @@ export function ConsentScreen() {
                                     ? "✓ 1 Person Verified"
                                     : faceCount > 1
                                       ? `⚠️ Multiple People Detected (${faceCount} Faces)`
-                                      : "⚠️ Face Not Detected"}
+                                      : "⚠️ Face Not Detected · Center in Frame"}
                                 </span>
+
+                                {/* Centering Reticle Guide when Face is missing or off-center */}
+                                {cameraActive && faceCount === 0 && (
+                                  <div className="face-reticle-overlay">
+                                    <div className="face-reticle-box">
+                                      <span className="face-reticle-corner tl" />
+                                      <span className="face-reticle-corner tr" />
+                                      <span className="face-reticle-corner bl" />
+                                      <span className="face-reticle-corner br" />
+                                      <span className="face-reticle-text">Position Face In Center</span>
+                                    </div>
+                                  </div>
+                                )}
 
                                 <span className="camera-overlay-tag">
                                   {camTesting ? "RE-CALIBRATING FEED..." : cameraActive ? "You · WebRTC Feed (Local Only)" : "You · Preview (Local Only)"}
@@ -970,6 +1085,19 @@ export function ConsentScreen() {
                                   {cameraActive ? "LIVE · 30 FPS · WEBRTC" : "30 FPS · WEBRTC"}
                                 </span>
                               </div>
+
+                              {/* Proctor Alert: Face Not Detected / Off-Center */}
+                              {cameraActive && faceCount === 0 && (
+                                <div className="proctor-no-face-card">
+                                  <div className="proctor-faces-header amber">
+                                    <span className="alert-icon">⚠️</span>
+                                    <b>Proctoring Warning: Face Not Visible in Camera Feed</b>
+                                  </div>
+                                  <p>
+                                    Intervia AI proctoring requires your full face to be clearly visible and centered in the frame. Please look directly into your camera to proceed.
+                                  </p>
+                                </div>
+                              )}
 
                               {/* Proctor Alert: Multiple People Detected in Camera */}
                               {faceCount > 1 && (

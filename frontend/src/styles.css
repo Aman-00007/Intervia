@@ -10871,7 +10871,9 @@ label.consent-check small {
 .camera-preview-wrapper {
   position: relative;
   width: 100%;
-  height: 180px;
+  aspect-ratio: 16 / 10;
+  min-height: 280px;
+  max-height: 340px;
   overflow: hidden;
   border-radius: 6px;
   border: 1px solid #222222;
@@ -14271,6 +14273,138 @@ button.test-device-btn:hover:not(:disabled),
   margin: 0 !important;
 }
 
+.face-reticle-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+  z-index: 15 !important;
+}
+
+.face-reticle-box {
+  width: 130px !important;
+  height: 150px !important;
+  border: 1.5px dashed rgba(245, 158, 11, 0.75) !important;
+  border-radius: 60px / 80px !important;
+  position: relative !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  padding-bottom: 8px !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25) !important;
+  animation: pulseReticle 1.6s infinite ease-in-out !important;
+}
+
+@keyframes pulseReticle {
+  0%, 100% {
+    transform: scale(0.98);
+    border-color: rgba(245, 158, 11, 0.6);
+  }
+  50% {
+    transform: scale(1.03);
+    border-color: rgba(245, 158, 11, 0.95);
+    box-shadow: 0 0 22px rgba(245, 158, 11, 0.45);
+  }
+}
+
+.face-reticle-corner {
+  position: absolute !important;
+  width: 12px !important;
+  height: 12px !important;
+  border-color: #f59e0b !important;
+  border-style: solid !important;
+}
+
+.face-reticle-corner.tl {
+  top: -2px !important;
+  left: 20px !important;
+  border-width: 2px 0 0 2px !important;
+}
+
+.face-reticle-corner.tr {
+  top: -2px !important;
+  right: 20px !important;
+  border-width: 2px 2px 0 0 !important;
+}
+
+.face-reticle-corner.bl {
+  bottom: -2px !important;
+  left: 20px !important;
+  border-width: 0 0 2px 2px !important;
+}
+
+.face-reticle-corner.br {
+  bottom: -2px !important;
+  right: 20px !important;
+  border-width: 0 2px 2px 0 !important;
+}
+
+.face-reticle-text {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #f59e0b !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  letter-spacing: 0.04em !important;
+}
+
+.proctor-no-face-card {
+  width: 100% !important;
+  background: rgba(245, 158, 11, 0.1) !important;
+  border: 1.5px solid #f59e0b !important;
+  border-radius: 6px !important;
+  padding: 12px 16px !important;
+  box-sizing: border-box !important;
+  margin-top: 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  animation: fadeInDown 0.25s ease-out !important;
+}
+
+.proctor-faces-header.amber {
+  color: #f59e0b !important;
+}
+
+.proctor-no-face-card p {
+  font-size: 11px !important;
+  color: #fde68a !important;
+  line-height: 1.45 !important;
+  margin: 0 !important;
+}
+
+/* Workspace Self Tile Face Missing Warning */
+.self-video-face-lost-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  background: rgba(0, 0, 0, 0.72) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10 !important;
+  border-radius: 4px !important;
+  backdrop-filter: blur(2px) !important;
+  animation: fadeIn 0.2s ease-in-out !important;
+}
+
+.self-video-face-lost-overlay span {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  color: #f59e0b !important;
+  background: rgba(0, 0, 0, 0.85) !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  border: 1px solid #f59e0b !important;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.35) !important;
+}
+
 /* ==========================================================================
    SMARTHIRE INTERACTIVE WHITE-TO-GREEN SPEECH ANIMATION
    ========================================================================== */
@@ -14497,4 +14631,119 @@ button.test-device-btn:hover:not(:disabled),
 .dbar.dbar-active {
   background: #10b981 !important;
   box-shadow: 0 0 6px rgba(16, 185, 129, 0.6) !important;
+}
+
+
+/* ==========================================================================
+   CONSENT SCREEN: PERMISSIONS ITEMS FLEX LAYOUT (FIX IMAGE 1)
+   ========================================================================== */
+.consent-items-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  margin: 20px 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.consent-item-card {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: flex-start !important;
+  gap: 16px !important;
+  padding: 16px 18px !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+}
+
+.consent-item-card:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.consent-item-card.is-selected {
+  background: rgba(23, 195, 178, 0.04) !important;
+  border-color: rgba(23, 195, 178, 0.35) !important;
+}
+
+.consent-checkbox-wrap {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  padding-top: 2px !important;
+}
+
+.modern-emerald-checkbox {
+  width: 18px !important;
+  height: 18px !important;
+  accent-color: #17c3b2 !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+}
+
+.consent-content {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+}
+
+.consent-card-header {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+.consent-card-header b {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.4 !important;
+}
+
+.consent-content p {
+  font-size: 12.5px !important;
+  color: #94a3b8 !important;
+  line-height: 1.5 !important;
+  margin: 0 !important;
+}
+
+.consent-badge {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  padding: 3px 8px !important;
+  border-radius: 3px !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+.consent-badge.teal {
+  background: rgba(23, 195, 178, 0.12) !important;
+  color: #17c3b2 !important;
+  border: 1px solid rgba(23, 195, 178, 0.3) !important;
+}
+
+.consent-badge.gray {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #94a3b8 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Proctor dot glowing pulse */
+.proctor-dot.active {
+  background: #10b981 !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8) !important;
 }

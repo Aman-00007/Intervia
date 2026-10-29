@@ -105,7 +105,7 @@ function WorkspaceContent({
     resetViolations,
     enterFullscreen,
   } = useAntiCheatSandbox({
-    enabled: candidateWorkspace,
+    enabled: true, // Active across workspace so tab switching is logged to HMAC Audit Chain for both Candidate and Interviewer testing
     maxAllowedSwitches: 3,
   });
 
@@ -135,9 +135,25 @@ function WorkspaceContent({
         });
       }
       setLocalCamActive(next);
+      if (next && localVideoRef.current && activeStreamRef.current) {
+        if (localVideoRef.current.srcObject !== activeStreamRef.current) {
+          localVideoRef.current.srcObject = activeStreamRef.current;
+        }
+        localVideoRef.current.play().catch(() => {});
+      }
       return next;
     });
   };
+
+  // Re-attach active stream whenever localCamActive or cameraEnabled changes
+  useEffect(() => {
+    if (localVideoRef.current && activeStreamRef.current && cameraEnabled) {
+      if (localVideoRef.current.srcObject !== activeStreamRef.current) {
+        localVideoRef.current.srcObject = activeStreamRef.current;
+      }
+      localVideoRef.current.play().catch(() => {});
+    }
+  }, [localCamActive, cameraEnabled]);
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -212,6 +228,57 @@ function WorkspaceContent({
       }
     };
   }, []);
+
+  // Candidate Real-time Proctor Face Visibility Monitor
+  const [faceVisible, setFaceVisible] = useState(true);
+  const workspaceCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    if (!candidateWorkspace) return;
+    if (!workspaceCanvasRef.current) {
+      workspaceCanvasRef.current = document.createElement("canvas");
+    }
+
+    const interval = setInterval(() => {
+      const video = localVideoRef.current;
+      if (!video || video.readyState < 2 || video.paused || video.ended) return;
+
+      try {
+        const canvas = workspaceCanvasRef.current;
+        if (!canvas) return;
+        const w = 80;
+        const h = 60;
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        let centerSkin = 0;
+        let totalSkin = 0;
+        for (let y = 8; y < 52; y++) {
+          for (let x = 0; x < w; x++) {
+            const idx = (y * w + x) * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+            const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+            if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173) {
+              totalSkin++;
+              if (x >= 18 && x <= 62) {
+                centerSkin++;
+              }
+            }
+          }
+        }
+        const isPresent = totalSkin > 75 && centerSkin > 35;
+        setFaceVisible(isPresent);
+      } catch {}
+    }, 1200);
+
+    return () => clearInterval(interval);
+  }, [candidateWorkspace]);
 
   // Interviewer Real-Time Integrity Alerts & Cryptographic Chain State
   const [securityAlerts, setSecurityAlerts] = useState<HmacLogEntry[]>(() => {
@@ -461,67 +528,96 @@ function WorkspaceContent({
             </div>
             <div className="self-video-row">
               <div className="self-video">
-                {cameraEnabled && localCamActive ? (
-                  <video
-                    ref={localVideoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="self-video-stream is-live"
-                  />
-                ) : !cameraEnabled ? (
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`self-video-stream ${cameraEnabled && localCamActive ? "is-live" : "hidden"}`}
+                />
+                {!cameraEnabled && (
                   <div className="self-video-paused">
                     <span className="paused-cam-icon">📷</span>
                     <span>Cam Paused</span>
                   </div>
-                ) : (
+                )}
+                {cameraEnabled && !localCamActive && (
                   <img
                     src="/assets/candidate-preview.jpeg"
                     alt="Self video fallback"
                     className="self-video-fallback-img"
                   />
                 )}
+                {candidateWorkspace && !faceVisible && localCamActive && (
+                  <div className="self-video-face-lost-overlay">
+                    <span>⚠️ Face not visible</span>
+                  </div>
+                )}
                 <span className="self-video-badge">You · {candidateWorkspace ? "C-7K2" : "I-014"}</span>
               </div>
               <div className="self-video-info">
-                <small>{`MIC ${microphoneEnabled ? "ON" : "OFF"} / CAM ${cameraEnabled ? "ON" : "OFF"} · WEBRTC`}</small>
-                <p>{!cameraEnabled ? "Camera paused by user" : !microphoneEnabled ? "Microphone muted" : "Live webcam feed active · encrypted stream"}</p>
+                <small>
+                  {candidateWorkspace
+                    ? (faceVisible ? "MIC LOCKED · CAM LOCKED · WEBRTC" : "⚠️ FACE NOT VISIBLE · WEBRTC")
+                    : `MIC ${microphoneEnabled ? "ON" : "OFF"} / CAM ${cameraEnabled ? "ON" : "OFF"}`}
+                </small>
+                <p>
+                  {candidateWorkspace
+                    ? (!faceVisible ? "⚠️ Keep your face centered in camera frame" : localCamActive ? "Live proctored feed active · encrypted" : "Connecting secure stream...")
+                    : (!cameraEnabled ? "Camera turned off by interviewer" : !microphoneEnabled ? "Microphone muted" : "Live interviewer webcam active")}
+                </p>
               </div>
             </div>
 
-            {/* Media Controls for Participants */}
-            <div className="participant-controls">
-              <button
-                type="button"
-                className={microphoneEnabled ? "device-control active" : "device-control muted"}
-                onClick={toggleMicrophone}
-                aria-pressed={microphoneEnabled}
-                aria-label="Toggle microphone"
-                title={microphoneEnabled ? "Mute microphone" : "Unmute microphone"}
-              >
-                <MicIcon />
-              </button>
-              <button
-                type="button"
-                className={cameraEnabled ? "device-control active" : "device-control muted"}
-                onClick={toggleCamera}
-                aria-pressed={cameraEnabled}
-                aria-label="Toggle camera"
-                title={cameraEnabled ? "Pause camera" : "Start camera"}
-              >
-                <CameraIcon />
-              </button>
-              <button type="button" className="device-control" aria-label="Open video settings">
-                <SettingsIcon />
-              </button>
-              <button
-                type="button"
-                className="end-session"
-                onClick={() => navigate(candidateWorkspace ? "/candidate" : "/interviewer")}
-              >
-                {candidateWorkspace ? "Leave" : "End session"}
-              </button>
-            </div>
+            {/* Candidate media is strictly locked; Interviewer has media toggles */}
+            {interviewer ? (
+              <div className="participant-controls">
+                <button
+                  type="button"
+                  className={microphoneEnabled ? "device-control active" : "device-control muted"}
+                  onClick={toggleMicrophone}
+                  aria-pressed={microphoneEnabled}
+                  aria-label="Toggle microphone"
+                  title={microphoneEnabled ? "Mute microphone" : "Unmute microphone"}
+                >
+                  <MicIcon />
+                </button>
+                <button
+                  type="button"
+                  className={cameraEnabled ? "device-control active" : "device-control muted"}
+                  onClick={toggleCamera}
+                  aria-pressed={cameraEnabled}
+                  aria-label="Toggle camera"
+                  title={cameraEnabled ? "Turn off camera" : "Turn on camera"}
+                >
+                  <CameraIcon />
+                </button>
+                <button type="button" className="device-control" aria-label="Open video settings">
+                  <SettingsIcon />
+                </button>
+                <button
+                  type="button"
+                  className="end-session"
+                  onClick={() => navigate("/interviewer")}
+                >
+                  End session
+                </button>
+              </div>
+            ) : (
+              <div className="candidate-media-footer">
+                <div className="proctor-stream-status">
+                  <span className="proctor-dot active" />
+                  <span>MIC & CAM LOCKED · RECORDING ACTIVE</span>
+                </div>
+                <button
+                  type="button"
+                  className="leave-session-btn"
+                  onClick={() => navigate("/candidate")}
+                >
+                  Leave
+                </button>
+              </div>
+            )}
           </Panel>
 
           {/* Conversation agenda card for Candidate */}

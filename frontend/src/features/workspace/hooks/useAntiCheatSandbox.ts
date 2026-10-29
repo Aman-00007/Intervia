@@ -74,48 +74,60 @@ export function useAntiCheatSandbox({
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
 
+    // Helper to log away event & record TAB_SWITCH violation
+    const triggerTabAway = () => {
+      const now = Date.now();
+      if (now < suppressUntilRef.current) return;
+      if (now - lastViolationTimeRef.current < 2000) return; // Prevent double trigger
+      lastViolationTimeRef.current = now;
+
+      const awayMs = blurTimestampRef.current ? now - blurTimestampRef.current : 500;
+      const durationSec = Math.max(0.5, awayMs / 1000).toFixed(1);
+      setLastAwayDuration(durationSec);
+
+      setTabSwitchCount((prev) => {
+        const nextCount = Math.min(maxAllowedSwitches, prev + 1);
+        try {
+          sessionStorage.setItem("intervia_tab_switches", nextCount.toString());
+        } catch {
+          // ignore
+        }
+
+        recordViolation("TAB_SWITCH", {
+          durationSeconds: parseFloat(durationSec),
+          violationAttempt: nextCount,
+          maxAllowed: maxAllowedSwitches,
+          terminated: nextCount >= maxAllowedSwitches,
+        });
+
+        return nextCount;
+      });
+
+      setModalReason("tab_switch");
+      setShowWarningModal(true);
+      blurTimestampRef.current = null;
+    };
+
     // 1. Visibility Change Detection (HackerRank Tab Switch)
     const handleVisibilityChange = () => {
       const now = Date.now();
       if (document.visibilityState === "hidden") {
         blurTimestampRef.current = now;
       } else if (document.visibilityState === "visible") {
-        if (now < suppressUntilRef.current) return;
-        if (now - lastViolationTimeRef.current < 2000) return; // Prevent double trigger
-        lastViolationTimeRef.current = now;
-
-        const awayMs = blurTimestampRef.current ? now - blurTimestampRef.current : 500;
-        const durationSec = Math.max(0.5, awayMs / 1000).toFixed(1);
-        setLastAwayDuration(durationSec);
-
-        setTabSwitchCount((prev) => {
-          const nextCount = Math.min(maxAllowedSwitches, prev + 1);
-          try {
-            sessionStorage.setItem("intervia_tab_switches", nextCount.toString());
-          } catch {
-            // ignore
-          }
-
-          recordViolation("TAB_SWITCH", {
-            durationSeconds: parseFloat(durationSec),
-            violationAttempt: nextCount,
-            maxAllowed: maxAllowedSwitches,
-            terminated: nextCount >= maxAllowedSwitches,
-          });
-
-          return nextCount;
-        });
-
-        setModalReason("tab_switch");
-        setShowWarningModal(true);
-        blurTimestampRef.current = null;
+        triggerTabAway();
       }
     };
 
-    // 2. Window Blur (e.g. alt-tabbing or clicking outside)
+    // 2. Window Blur & Focus (e.g. alt-tabbing or clicking outside to Snipping Tool / desktop app)
     const handleWindowBlur = () => {
       if (!blurTimestampRef.current) {
         blurTimestampRef.current = Date.now();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      if (blurTimestampRef.current && Date.now() - blurTimestampRef.current > 600) {
+        triggerTabAway();
       }
     };
 
@@ -191,6 +203,7 @@ export function useAntiCheatSandbox({
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("focus", handleWindowFocus);
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     window.addEventListener("paste", handlePaste, true);
     window.addEventListener("copy", handleCopy, true);
@@ -201,6 +214,7 @@ export function useAntiCheatSandbox({
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       window.removeEventListener("paste", handlePaste, true);
       window.removeEventListener("copy", handleCopy, true);

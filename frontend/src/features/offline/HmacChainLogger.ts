@@ -102,15 +102,50 @@ function sha256Sync(str: string): string {
 export class HmacChainLogger {
   private seedKey: string;
   private entries: HmacLogEntry[] = [];
+  private broadcastChannel: BroadcastChannel | null = null;
 
   constructor(seedKey = "INTERVIA_SERVER_SEED_IV-2048") {
     this.seedKey = seedKey;
     this.restoreFromStorage();
+
+    if (typeof window !== "undefined") {
+      try {
+        if ("BroadcastChannel" in window) {
+          this.broadcastChannel = new BroadcastChannel("intervia_hmac_bus");
+          this.broadcastChannel.onmessage = (event) => {
+            if (event.data && event.data.type === "SECURITY_ENTRY" && event.data.entry) {
+              const entry = event.data.entry as HmacLogEntry;
+              if (!this.entries.some((e) => e.sequenceId === entry.sequenceId && e.currentHash === entry.currentHash)) {
+                this.entries.push(entry);
+                this.saveToStorage();
+              }
+              window.dispatchEvent(new CustomEvent("intervia:security_violation", { detail: entry }));
+            }
+          };
+        }
+      } catch {
+        // Fallback to storage event
+      }
+
+      window.addEventListener("storage", (e) => {
+        if (e.key === "intervia_security_chain" && e.newValue) {
+          try {
+            const parsed = JSON.parse(e.newValue);
+            if (Array.isArray(parsed) && parsed.length > this.entries.length) {
+              const newEntry = parsed[parsed.length - 1];
+              this.entries = parsed;
+              window.dispatchEvent(new CustomEvent("intervia:security_violation", { detail: newEntry }));
+            }
+          } catch {}
+        }
+      });
+    }
   }
 
   private restoreFromStorage() {
     try {
-      const stored = sessionStorage.getItem("intervia_security_chain");
+      const stored = (typeof localStorage !== "undefined" && localStorage.getItem("intervia_security_chain")) ||
+                     (typeof sessionStorage !== "undefined" && sessionStorage.getItem("intervia_security_chain"));
       if (stored) {
         this.entries = JSON.parse(stored);
       }
@@ -121,7 +156,13 @@ export class HmacChainLogger {
 
   private saveToStorage() {
     try {
-      sessionStorage.setItem("intervia_security_chain", JSON.stringify(this.entries));
+      const json = JSON.stringify(this.entries);
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("intervia_security_chain", json);
+      }
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem("intervia_security_chain", json);
+      }
     } catch {
       // Storage full or private mode
     }
@@ -154,7 +195,12 @@ export class HmacChainLogger {
     this.entries.push(entry);
     this.saveToStorage();
 
-    // Broadcast event for live interviewer workspace listener
+    // Broadcast event across windows and locally for live interviewer workspace listener
+    if (this.broadcastChannel) {
+      try {
+        this.broadcastChannel.postMessage({ type: "SECURITY_ENTRY", entry });
+      } catch {}
+    }
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("intervia:security_violation", { detail: entry }));
     }
