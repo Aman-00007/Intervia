@@ -49,6 +49,22 @@ export function screenForPath(path: string): Screen {
     return "join";
   }
 
+  // Handle invitation links like /invite/IV-2048 -> routes directly to candidate login
+  if (path.startsWith("/invite/")) {
+    const inviteCode = path.replace("/invite/", "").trim();
+    if (inviteCode && typeof sessionStorage !== "undefined") {
+      try {
+        sessionStorage.setItem("active_interview_code", inviteCode);
+      } catch {
+        // ignore
+      }
+    }
+    return "candidate-login";
+  }
+  if (path === "/invite") {
+    return "candidate-login";
+  }
+
   return routes[path] ?? (isDesktop ? "join" : "landing");
 }
 

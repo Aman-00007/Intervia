@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api";
 import { Screen } from "../../core/models/screens";
 import { navigate } from "../../core/router";
@@ -10,6 +10,8 @@ import {
 } from "../../core/interviewSettings";
 import { MonacoEditor } from "./MonacoEditor";
 import { TestResultsConsole } from "./TestResultsConsole";
+import { useAntiCheatSandbox } from "./hooks/useAntiCheatSandbox";
+import { HmacLogEntry, securityAuditLogger } from "../offline/HmacChainLogger";
 
 export function WorkspaceView({
   screen,
@@ -90,6 +92,158 @@ function WorkspaceContent({
   const [nemotronPrompt, setNemotronPrompt] = useState("");
   const [stagedToast, setStagedToast] = useState("");
   const [privateNote, setPrivateNote] = useState("");
+
+  // Tab Switch Security & Proctor Sandbox (HackerRank-style)
+  const {
+    tabSwitchCount,
+    maxAllowedSwitches,
+    isDisqualified,
+    showWarningModal,
+    modalReason,
+    lastAwayDuration,
+    dismissWarning,
+    resetViolations,
+    enterFullscreen,
+  } = useAntiCheatSandbox({
+    enabled: candidateWorkspace,
+    maxAllowedSwitches: 3,
+  });
+
+  // Local Webcam Stream for Workspace WebRTC Rail
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
+  const [localCamActive, setLocalCamActive] = useState(false);
+
+  const toggleMicrophone = () => {
+    setMicrophoneEnabled((prev) => {
+      const next = !prev;
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getAudioTracks().forEach((track) => {
+          track.enabled = next;
+        });
+      }
+      return next;
+    });
+  };
+
+  const toggleCamera = () => {
+    setCameraEnabled((prev) => {
+      const next = !prev;
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getVideoTracks().forEach((track) => {
+          track.enabled = next;
+        });
+      }
+      setLocalCamActive(next);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    async function startWorkspaceCam() {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const vDevs = devices.filter((d) => d.kind === "videoinput");
+        const aDevs = devices.filter((d) => d.kind === "audioinput");
+        const savedCamId = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("intervia_selected_cam") : null;
+        const savedMicId = typeof sessionStorage !== "undefined" ? sessionStorage.getItem("intervia_selected_mic") : null;
+        const savedCam = savedCamId ? vDevs.find((d) => d.deviceId === savedCamId) : null;
+        const savedMic = savedMicId ? aDevs.find((d) => d.deviceId === savedMicId) : null;
+        const physicalCam =
+          savedCam ||
+          vDevs.find((d) => {
+            const l = (d.label || "").toLowerCase();
+            const isVirt =
+              l.includes("virtual") ||
+              l.includes("m33") ||
+              l.includes("phone link") ||
+              l.includes("droidcam") ||
+              l.includes("obs");
+            return (
+              !isVirt &&
+              (l.includes("integrated") ||
+                l.includes("built-in") ||
+                l.includes("builtin") ||
+                l.includes("webcam") ||
+                l.includes("hd camera") ||
+                l.includes("camera"))
+            );
+          }) ||
+          vDevs.find((d) => {
+            const l = (d.label || "").toLowerCase();
+            return !l.includes("virtual") && !l.includes("m33") && !l.includes("obs");
+          }) ||
+          vDevs[0];
+
+        const constraints: MediaStreamConstraints = {
+          video: physicalCam
+            ? { deviceId: { ideal: physicalCam.deviceId }, width: { ideal: 640 }, height: { ideal: 360 } }
+            : { width: { ideal: 640 }, height: { ideal: 360 }, facingMode: "user" },
+          audio: savedMic ? { deviceId: { ideal: savedMic.deviceId } } : true,
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        activeStream = stream;
+        activeStreamRef.current = stream;
+        stream.getAudioTracks().forEach((track) => {
+          track.enabled = microphoneEnabled;
+        });
+        stream.getVideoTracks().forEach((track) => {
+          track.enabled = cameraEnabled;
+        });
+        setLocalCamActive(cameraEnabled && stream.getVideoTracks().length > 0);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.onloadedmetadata = () => {
+            localVideoRef.current?.play().catch(() => {});
+          };
+        }
+      } catch (err) {
+        console.warn("Workspace camera fallback to still photo:", err);
+        setLocalCamActive(false);
+      }
+    }
+    startWorkspaceCam();
+    return () => {
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  // Interviewer Real-Time Integrity Alerts & Cryptographic Chain State
+  const [securityAlerts, setSecurityAlerts] = useState<HmacLogEntry[]>(() => {
+    return securityAuditLogger.getEntries().reverse();
+  });
+  const [showSecurityDrawer, setShowSecurityDrawer] = useState(false);
+  const [activeAlertToast, setActiveAlertToast] = useState<HmacLogEntry | null>(null);
+
+  useEffect(() => {
+    if (!interviewer) return;
+    const handleViolation = (e: Event) => {
+      const customEvt = e as CustomEvent<HmacLogEntry>;
+      if (customEvt.detail) {
+        setSecurityAlerts((prev) => [customEvt.detail, ...prev]);
+        setActiveAlertToast(customEvt.detail);
+        setTimeout(() => setActiveAlertToast(null), 6000);
+      }
+    };
+    window.addEventListener("intervia:security_violation", handleViolation);
+    return () => window.removeEventListener("intervia:security_violation", handleViolation);
+  }, [interviewer]);
+
+  // Simulation handler for easy testing of anti-cheating feature
+  const handleSimulateViolation = () => {
+    const nextCount = Math.min(3, (tabSwitchCount || 0) + 1);
+    securityAuditLogger.append("TAB_SWITCH", {
+      durationSeconds: 3.4,
+      violationAttempt: nextCount,
+      maxAllowed: 3,
+      simulated: true,
+    });
+  };
 
   const handleRunNemotron = async (query: string) => {
     setNemotronLoading(true);
@@ -195,6 +349,23 @@ function WorkspaceContent({
       <span className="session-timer">23:48 / 45:00</span>
       {interviewer ? (
         <>
+          <button
+            type="button"
+            className={`proctor-chain-badge ${securityAlerts.length > 0 ? "has-alerts" : ""}`}
+            onClick={() => setShowSecurityDrawer(!showSecurityDrawer)}
+            title="View Tamper-Evident HMAC Integrity Chain"
+          >
+            <span className="proctor-shield-icon">🛡️</span>
+            <span>Audit Chain ({securityAlerts.length})</span>
+          </button>
+          <button
+            type="button"
+            className="simulate-violation-btn"
+            onClick={handleSimulateViolation}
+            title="Simulate candidate tab switch to test anti-cheat detection"
+          >
+            ⚡ Test Tab Switch
+          </button>
           <Button className="workspace-btn btn-run">Run tests →</Button>
           <Button secondary className="workspace-btn btn-end">End interview →</Button>
         </>
@@ -254,7 +425,17 @@ function WorkspaceContent({
                 <span className="editor-charset">· UTF-8</span>
               </div>
             </div>
-            <MonacoEditor value={code} onChange={setCode} />
+            <MonacoEditor
+              value={code}
+              onChange={setCode}
+              preventClipboard={candidateWorkspace}
+              onClipboardBlocked={(action) => {
+                securityAuditLogger.append("CLIPBOARD_RESTRICTED", {
+                  action,
+                  user: candidateWorkspace ? "C-7K2" : "I-014",
+                });
+              }}
+            />
             <div className="editor-footer">
               MONACO / YJS · BOTH PARTICIPANTS SYNCHRONIZED{" "}
               <span>Ln 10 · Col 19</span>
@@ -280,57 +461,67 @@ function WorkspaceContent({
             </div>
             <div className="self-video-row">
               <div className="self-video">
+                {cameraEnabled && localCamActive ? (
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="self-video-stream is-live"
+                  />
+                ) : !cameraEnabled ? (
+                  <div className="self-video-paused">
+                    <span className="paused-cam-icon">📷</span>
+                    <span>Cam Paused</span>
+                  </div>
+                ) : (
+                  <img
+                    src="/assets/candidate-preview.jpeg"
+                    alt="Self video fallback"
+                    className="self-video-fallback-img"
+                  />
+                )}
                 <span className="self-video-badge">You · {candidateWorkspace ? "C-7K2" : "I-014"}</span>
               </div>
               <div className="self-video-info">
-                <small>{candidateWorkspace ? "MIC ON / CAM ON" : `MIC ${microphoneEnabled ? "ON" : "OFF"} / CAM ${cameraEnabled ? "ON" : "OFF"}`}</small>
-                <p>Recording with consent. Illustrative video stills.</p>
+                <small>{`MIC ${microphoneEnabled ? "ON" : "OFF"} / CAM ${cameraEnabled ? "ON" : "OFF"} · WEBRTC`}</small>
+                <p>{!cameraEnabled ? "Camera paused by user" : !microphoneEnabled ? "Microphone muted" : "Live webcam feed active · encrypted stream"}</p>
               </div>
             </div>
 
-            {/* Candidate has locked media (cannot toggle mic/cam off); Interviewer has media toggles */}
-            {interviewer ? (
-              <div className="participant-controls">
-                <button
-                  type="button"
-                  className={microphoneEnabled ? "device-control active" : "device-control"}
-                  onClick={() => setMicrophoneEnabled((enabled) => !enabled)}
-                  aria-pressed={microphoneEnabled}
-                  aria-label="Toggle microphone"
-                >
-                  <MicIcon />
-                </button>
-                <button
-                  type="button"
-                  className={cameraEnabled ? "device-control active" : "device-control"}
-                  onClick={() => setCameraEnabled((enabled) => !enabled)}
-                  aria-pressed={cameraEnabled}
-                  aria-label="Toggle camera"
-                >
-                  <CameraIcon />
-                </button>
-                <button type="button" className="device-control" aria-label="Open video settings">
-                  <SettingsIcon />
-                </button>
-                <button type="button" className="end-session" onClick={() => navigate("/interviewer")}>
-                  End session
-                </button>
-              </div>
-            ) : (
-              <div className="candidate-media-footer">
-                <div className="proctor-stream-status">
-                  <span className="proctor-dot" />
-                  <span>MIC & CAM LOCKED · RECORDING ACTIVE</span>
-                </div>
-                <button
-                  type="button"
-                  className="leave-session-btn"
-                  onClick={() => navigate("/candidate")}
-                >
-                  Leave
-                </button>
-              </div>
-            )}
+            {/* Media Controls for Participants */}
+            <div className="participant-controls">
+              <button
+                type="button"
+                className={microphoneEnabled ? "device-control active" : "device-control muted"}
+                onClick={toggleMicrophone}
+                aria-pressed={microphoneEnabled}
+                aria-label="Toggle microphone"
+                title={microphoneEnabled ? "Mute microphone" : "Unmute microphone"}
+              >
+                <MicIcon />
+              </button>
+              <button
+                type="button"
+                className={cameraEnabled ? "device-control active" : "device-control muted"}
+                onClick={toggleCamera}
+                aria-pressed={cameraEnabled}
+                aria-label="Toggle camera"
+                title={cameraEnabled ? "Pause camera" : "Start camera"}
+              >
+                <CameraIcon />
+              </button>
+              <button type="button" className="device-control" aria-label="Open video settings">
+                <SettingsIcon />
+              </button>
+              <button
+                type="button"
+                className="end-session"
+                onClick={() => navigate(candidateWorkspace ? "/candidate" : "/interviewer")}
+              >
+                {candidateWorkspace ? "Leave" : "End session"}
+              </button>
+            </div>
           </Panel>
 
           {/* Conversation agenda card for Candidate */}
@@ -551,6 +742,243 @@ function WorkspaceContent({
           </aside>
         )}
       </div>
+
+      {/* 1. Candidate Terminal Disqualification Modal (when 3 violations reached) */}
+      {candidateWorkspace && isDisqualified && (
+        <div className="anti-cheat-modal-backdrop terminal-backdrop">
+          <div className="anti-cheat-modal terminal-disqualification-modal">
+            <div className="terminal-icon-badge">
+              <span>🚨</span>
+            </div>
+            <small className="terminal-eyebrow">SESSION LOCKED · PROCTOR DISQUALIFICATION</small>
+            <h2 className="terminal-title">Interview Terminated (3 / 3 Violations)</h2>
+            <p className="terminal-desc">
+              You have exhausted the maximum limit of 3 tab switch / focus warnings. In accordance with strict competitive proctoring standards, your live interview session has been permanently locked.
+            </p>
+
+            <div className="terminal-audit-box">
+              <div className="terminal-audit-row">
+                <span>AUDIT RESULT:</span>
+                <b className="red-tag">TERMINATED / DISQUALIFIED</b>
+              </div>
+              <div className="terminal-audit-row">
+                <span>VIOLATIONS LOGGED:</span>
+                <b>3 / 3 Warnings Exhausted</b>
+              </div>
+              <div className="terminal-audit-row">
+                <span>HMAC CHAIN PROOF:</span>
+                <span className="mono-audit-id">SEALED IN IDENTITY_VAULT</span>
+              </div>
+            </div>
+
+            <p className="terminal-subtext">
+              Your code snapshot, execution trace, and background away durations have been compiled and submitted to your interviewer for review.
+            </p>
+
+            <div className="terminal-actions-row">
+              <button
+                type="button"
+                className="terminal-exit-btn"
+                onClick={() => {
+                  sessionStorage.removeItem("active_interview_code");
+                  sessionStorage.removeItem("intervia_tab_switches");
+                  navigate("/candidate");
+                }}
+              >
+                Exit Proctored Interview →
+              </button>
+              <button
+                type="button"
+                className="terminal-reset-test-btn"
+                onClick={resetViolations}
+                title="Reset counter for testing and development"
+              >
+                ↺ Reset violations (test mode)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Candidate Warning Modal for warnings 1 and 2 (when NOT disqualified) */}
+      {candidateWorkspace && !isDisqualified && showWarningModal && (
+        <div className="anti-cheat-modal-backdrop">
+          <div className="anti-cheat-modal">
+            <button
+              type="button"
+              className="anti-cheat-close-x"
+              onClick={dismissWarning}
+              aria-label="Close modal"
+              title="Close warning modal"
+            >
+              ✕
+            </button>
+            <div className="anti-cheat-icon-badge">
+              <span>⚠️</span>
+            </div>
+            <small className="anti-cheat-eyebrow">PROCTORED EXAM SECURITY · INTEGRITY ALERT</small>
+            <h2 className="anti-cheat-title">
+              {modalReason === "tab_switch"
+                ? "Tab Switch Violation Detected"
+                : modalReason === "fullscreen_exit"
+                ? "Fullscreen Mode Exited"
+                : "External Paste Blocked"}
+            </h2>
+            <p className="anti-cheat-desc">
+              {modalReason === "tab_switch"
+                ? `You navigated away from the proctored interview workspace for ${lastAwayDuration} seconds. Switching tabs during evaluation is strictly monitored.`
+                : modalReason === "fullscreen_exit"
+                ? "Intervia requires full-screen mode to ensure a focused, unassisted technical interview."
+                : "Large external copy-paste blocks are intercepted and flagged in your integrity log."}
+            </p>
+
+            <div className="anti-cheat-attempts-box">
+              <div className="attempts-header">
+                <span>VIOLATION ATTEMPTS</span>
+                <b>
+                  {tabSwitchCount} / {maxAllowedSwitches}
+                </b>
+              </div>
+              <div className="attempts-pips">
+                {[1, 2, 3].map((num) => (
+                  <div
+                    key={num}
+                    className={`attempt-pip ${num <= tabSwitchCount ? "violated" : ""}`}
+                  />
+                ))}
+              </div>
+              <small className="attempts-warning">
+                Warning {tabSwitchCount} of 3. You have {maxAllowedSwitches - tabSwitchCount} warning(s) remaining before automatic session termination.
+              </small>
+            </div>
+
+            <div className="anti-cheat-audit-notice">
+              <span className="chain-shield">🔒</span>
+              <span>
+                This event has been recorded in your session’s tamper-evident HMAC-SHA256 audit chain and broadcast in real time to your interviewer.
+              </span>
+            </div>
+
+            <div className="anti-cheat-btn-group">
+              <button
+                type="button"
+                className="anti-cheat-return-btn"
+                onClick={() => {
+                  dismissWarning();
+                  enterFullscreen();
+                }}
+              >
+                Re-enter Fullscreen & Return →
+              </button>
+              <button
+                type="button"
+                className="anti-cheat-secondary-btn"
+                onClick={dismissWarning}
+              >
+                Dismiss & Return to Code
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Interviewer Live Security Alert Toast */}
+      {interviewer && activeAlertToast && (
+        <div className="interviewer-proctor-alert-toast" onClick={() => setShowSecurityDrawer(true)}>
+          <div className="alert-toast-icon">⚠️</div>
+          <div className="alert-toast-body">
+            <b>Candidate Proctor Alert: {activeAlertToast.eventType}</b>
+            <span>
+              {activeAlertToast.payload} · Sequence #{activeAlertToast.sequenceId}
+            </span>
+          </div>
+          <button type="button" className="alert-view-btn">
+            View Audit Chain →
+          </button>
+        </div>
+      )}
+
+      {/* 3. Interviewer HMAC-SHA256 Cryptographic Audit Chain Drawer */}
+      {interviewer && showSecurityDrawer && (
+        <div className="proctor-drawer-backdrop" onClick={() => setShowSecurityDrawer(false)}>
+          <aside className="proctor-drawer" onClick={(e) => e.stopPropagation()}>
+            <div className="proctor-drawer-header">
+              <div>
+                <small>PROCTORING & TAMPER-EVIDENT INTEGRITY</small>
+                <h2>Cryptographic Audit Chain</h2>
+              </div>
+              <button
+                type="button"
+                className="close-drawer-btn"
+                onClick={() => setShowSecurityDrawer(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {(() => {
+              const entries = securityAuditLogger.getEntries();
+              const verification = securityAuditLogger.verifyChain();
+              return (
+                <div className="proctor-drawer-content">
+                  <div className={`chain-status-banner ${verification.valid ? "status-valid" : "status-compromised"}`}>
+                    <span className="chain-icon">{verification.valid ? "🛡️" : "⚠️"}</span>
+                    <div>
+                      <b>{verification.valid ? "HMAC-SHA256 Chain 100% Valid" : "Tampering Detected"}</b>
+                      <span>
+                        {verification.valid
+                          ? `${verification.totalEntries || entries.length} entries cryptographically verified against server seed.`
+                          : verification.reason}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="chain-actions-bar">
+                    <span className="chain-count-label">Recorded Events ({entries.length})</span>
+                    <button
+                      type="button"
+                      className="chain-simulate-btn"
+                      onClick={handleSimulateViolation}
+                    >
+                      + Simulate Tab Switch
+                    </button>
+                  </div>
+
+                  {entries.length === 0 ? (
+                    <div className="empty-chain-state">
+                      <p>No integrity violations recorded yet for this session.</p>
+                      <small>Candidate is currently focused inside the proctored window.</small>
+                    </div>
+                  ) : (
+                    <div className="chain-entries-list">
+                      {[...entries].reverse().map((entry) => (
+                        <div key={entry.sequenceId} className="chain-entry-card">
+                          <div className="chain-entry-header">
+                            <span className="entry-seq">#{entry.sequenceId}</span>
+                            <span className="entry-type-pill">{entry.eventType}</span>
+                            <span className="entry-time">{new Date(entry.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                          <div className="chain-entry-payload">
+                            <code>{entry.payload}</code>
+                          </div>
+                          <div className="chain-entry-hashes">
+                            <small>
+                              HASH: <span className="mono-hash">{entry.currentHash.substring(0, 16)}...</span>
+                            </small>
+                            <small>
+                              PREV: <span className="mono-hash">{entry.previousHash.substring(0, 16)}...</span>
+                            </small>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </aside>
+        </div>
+      )}
     </Page>
   );
 }
@@ -646,7 +1074,17 @@ print(merge_intervals([[1, 3], [3, 5]]))`);
                 <span className="editor-charset">· UTF-8</span>
               </div>
             </div>
-            <MonacoEditor value={code} onChange={setCode} />
+            <MonacoEditor
+              value={code}
+              onChange={setCode}
+              preventClipboard={true}
+              onClipboardBlocked={(action) => {
+                securityAuditLogger.append("CLIPBOARD_RESTRICTED", {
+                  action,
+                  user: "C-7K2",
+                });
+              }}
+            />
             <div className="editor-footer">
               SERVER CODE ACKNOWLEDGED · LOCAL COPY RETAINED{" "}
               <span>Ln 18 · Col 39</span>

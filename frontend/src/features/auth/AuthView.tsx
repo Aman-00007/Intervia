@@ -7,14 +7,51 @@ export function AuthView({ screen }: { screen: Screen }) {
   const register = screen.includes("registration");
   const admin = screen.startsWith("admin");
   const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
+  // Detect active interview invitation attached via URL or sessionStorage
+  const [attachedInvite, setAttachedInvite] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlInvite = params.get("invite") || params.get("code");
+      if (urlInvite) {
+        try {
+          sessionStorage.setItem("active_interview_code", urlInvite);
+        } catch {
+          // ignore
+        }
+        return urlInvite;
+      }
+      try {
+        return sessionStorage.getItem("active_interview_code") || "";
+      } catch {
+        return "";
+      }
+    }
+    return "";
+  });
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    setError("Authentication endpoints are not implemented in the current backend.");
+    if (register && !termsAccepted) {
+      setError("Please accept the Terms of Service and Privacy Policy.");
+      return;
+    }
+    // In mock frontend, candidate credentials route into Stage A onboarding directly
+    if (!admin) {
+      if (attachedInvite) {
+        sessionStorage.setItem("active_interview_code", attachedInvite);
+      }
+      navigate("/candidate/consent");
+      return;
+    }
+    // Admin login routes to interviewer dashboard
+    navigate("/interviewer");
   };
 
   const storyTitle = admin ? (
@@ -84,6 +121,32 @@ export function AuthView({ screen }: { screen: Screen }) {
               : "Sign in to view your invitations and revisit your interview reports."}
         </p>
 
+        {/* Invitation Link Attached Banner */}
+        {!admin && attachedInvite && (
+          <div className="invite-link-attached-card">
+            <div className="invite-banner-header">
+              <span className="invite-live-dot">●</span>
+              <span className="invite-badge-text">INVITATION ATTACHED · {attachedInvite}</span>
+            </div>
+            <h3 className="invite-session-title">Backend engineering</h3>
+            <p className="invite-session-details">
+              45-minute technical conversation · Python 3.11 · Identity cryptographically tokenized
+            </p>
+            <div className="invite-card-action">
+              <button
+                type="button"
+                className="btn btn-primary invite-continue-btn"
+                onClick={() => {
+                  sessionStorage.setItem("active_interview_code", attachedInvite);
+                  navigate("/candidate/consent");
+                }}
+              >
+                Proceed directly to session setup →
+              </button>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={submit}>
           {register && (
             <>
@@ -96,6 +159,8 @@ export function AuthView({ screen }: { screen: Screen }) {
             label={admin ? "WORK EMAIL" : "EMAIL ADDRESS"}
             placeholder={admin ? "you@company.com" : "Enter your email"}
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
           />
 
           <label className="field password-field">
@@ -103,6 +168,8 @@ export function AuthView({ screen }: { screen: Screen }) {
             <input
               type={showPassword ? "text" : "password"}
               placeholder={register ? "Create a password" : "Enter your password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
             <button
               type="button"

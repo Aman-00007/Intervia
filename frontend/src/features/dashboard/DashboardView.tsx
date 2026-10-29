@@ -9,6 +9,25 @@ export function DashboardView({ screen }: { screen: Extract<Screen, "interviewer
   if (screen === "candidate-dashboard") return <Page className="candidate-dashboard-page" eyebrow="YOUR INTERVIEWS / C-7K2" title="Your next conversation."><p className="page-intro">View invitations, finish session setup and return to feedback from earlier interviews.</p><div className="two-col candidate-hero-grid"><Panel className="candidate-session-card"><div className="panel-heading"><small>TODAY / IV-2048</small><small className="status">■ Invitation accepted</small></div><h2>Backend engineering</h2><p>27 Oct 2026 · 14:00–14:45 UTC · 45 minutes</p><p>A human-led technical discussion with collaborative coding in Python 3.11.</p><div className="callout"><span><b>Your invitation is verified.</b><small>Join takes you through consent and device checks first.</small></span><Button onClick={() => navigate("/candidate/consent")}>Join interview →</Button></div></Panel><Panel className="session-setup-card"><h2>Session setup</h2><div className="setup-status-row"><span>Invitation</span><b>Verified</b></div><div className="setup-status-row"><span>Privacy consent</span><b>Review required</b></div><div className="setup-status-row"><span>Resume</span><b>Not yet reviewed</b></div><div className="setup-status-row"><span>Microphone & camera</span><b>Check required</b></div><p className="setup-explanation">No recording is active. Complete these checks before entering the live conversation.</p><button className="text-button" onClick={() => navigate("/candidate/consent")}>Review privacy & devices →</button></Panel></div><DataTable candidate title="Previous interviews" rows={["IV-2039 / C-7K2 | API design discussion | 22 Oct 2026 · 10:00 UTC | Ready", "IV-2021 / C-7K2 | Data modeling discussion | 14 Oct 2026 · 11:00 UTC | Ready", "IV-2007 / C-7K2 | Python services discussion | 07 Oct 2026 · 09:00 UTC | Ready"]} /><div className="two-col candidate-info-grid"><Panel><h2>A clear connection</h2><p>Choose your microphone and camera during session setup. A local 8-minute buffer helps retain work if the connection drops.</p><button className="text-button">Device help ↗</button></Panel><Panel><h2>Feedback that stays useful</h2><p>Your own reports include constructive feedback and code evidence. Interviewer-only notes remain private.</p><button className="text-button" onClick={() => navigate("/candidate/reports")}>All reports / previous reports →</button></Panel></div></Page>;
   if (screen === "create-interview") return <CreateInterview />;
   if (screen === "manage-interview") return <ManageInterview />;
+  return <InterviewerDashboard />;
+}
+
+function InterviewerDashboard() {
+  const [copyLinkToast, setCopyLinkToast] = useState("");
+
+  const handleCopyInvite = (code: string) => {
+    const inviteUrl = `${window.location.origin}/candidate/login?invite=${code}`;
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(inviteUrl).then(() => {
+        setCopyLinkToast(`Copied invitation link for ${code}!`);
+        setTimeout(() => setCopyLinkToast(""), 3500);
+      });
+    } else {
+      setCopyLinkToast(`Link: ${inviteUrl}`);
+      setTimeout(() => setCopyLinkToast(""), 4000);
+    }
+  };
+
   return (
     <Page
       className="interviewer-dashboard-page"
@@ -35,11 +54,22 @@ export function DashboardView({ screen }: { screen: Extract<Screen, "interviewer
           <p>C-7K2 · Python 3.11 · 45-minute interview</p>
           <small>27 OCT 2026 / 14:00–14:45 UTC</small>
           <div className="callout">
-            Candidate connected · interviewer room open{" "}
-            <Button onClick={() => navigate("/interviewer/workspace")}>
-              Join now →
-            </Button>
+            <span>Candidate connected · interviewer room open</span>
+            <div className="callout-actions-row">
+              <Button onClick={() => navigate("/interviewer/workspace")}>
+                Join now →
+              </Button>
+              <button
+                type="button"
+                className="copy-invite-link-btn"
+                onClick={() => handleCopyInvite("IV-2048")}
+                title="Copy candidate invitation link to clipboard"
+              >
+                📋 Copy invite link
+              </button>
+            </div>
           </div>
+          {copyLinkToast && <div className="copy-link-toast-pill">{copyLinkToast}</div>}
         </Panel>
         <Panel>
           <h2>Invitation management</h2>
@@ -57,9 +87,18 @@ export function DashboardView({ screen }: { screen: Extract<Screen, "interviewer
           <p>
             IV-2051 is delivered but not yet accepted. Send a reminder without exposing the invitation code.
           </p>
-          <button className="text-button" onClick={() => navigate("/interviewer/manage")}>
-            Manage invitations →
-          </button>
+          <div className="invite-management-actions">
+            <button className="text-button" onClick={() => navigate("/interviewer/manage")}>
+              Manage invitations →
+            </button>
+            <button
+              type="button"
+              className="text-button copy-link-text-btn"
+              onClick={() => handleCopyInvite("IV-2051")}
+            >
+              📋 Copy link for IV-2051
+            </button>
+          </div>
         </Panel>
       </div>
       <DataTable

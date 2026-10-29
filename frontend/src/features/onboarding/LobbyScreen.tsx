@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { navigate } from "../../core/router";
 import { Page, Panel } from "../../shared/components/UI";
 
@@ -8,6 +8,127 @@ export function LobbyScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [testingAudio, setTestingAudio] = useState(false);
   const [testSuccess, setTestSuccess] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+
+  // Initialize live webcam & microphone stream in Lobby
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function initLobbyMedia() {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return;
+      try {
+        const savedCamId = sessionStorage.getItem("intervia_selected_cam");
+        const savedMicId = sessionStorage.getItem("intervia_selected_mic");
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const vDevs = devices.filter((d) => d.kind === "videoinput");
+        const aDevs = devices.filter((d) => d.kind === "audioinput");
+
+        const targetCam = (savedCamId && vDevs.find((d) => d.deviceId === savedCamId)) || vDevs[0];
+        const targetMic = (savedMicId && aDevs.find((d) => d.deviceId === savedMicId)) || aDevs[0];
+
+        const constraints: MediaStreamConstraints = {
+          video: targetCam
+            ? { deviceId: { ideal: targetCam.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+          audio: targetMic ? { deviceId: { ideal: targetMic.deviceId } } : true,
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (isCancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+
+        // Apply initial toggle states
+        stream.getAudioTracks().forEach((t) => {
+          t.enabled = !micMuted;
+        });
+        stream.getVideoTracks().forEach((t) => {
+          t.enabled = !videoOff;
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().catch(() => {});
+          };
+        }
+
+        // Live Audio Equalizer for Settings drawer
+        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtxClass && stream.getAudioTracks().length > 0) {
+          const audioCtx = new AudioCtxClass();
+          audioCtxRef.current = audioCtx;
+          const source = audioCtx.createMediaStreamSource(stream);
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 32;
+          source.connect(analyser);
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          const updateAudioBar = () => {
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+              sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+            animFrameRef.current = requestAnimationFrame(updateAudioBar);
+          };
+          updateAudioBar();
+        }
+      } catch (err) {
+        console.warn("Lobby webcam preview fallback:", err);
+      }
+    }
+
+    initLobbyMedia();
+
+    return () => {
+      isCancelled = true;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (audioCtxRef.current && audioCtxRef.current.state !== "closed") {
+        audioCtxRef.current.close().catch(() => {});
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+    };
+  }, []);
+
+  const toggleMic = () => {
+    setMicMuted((prev) => {
+      const next = !prev;
+      if (streamRef.current) {
+        streamRef.current.getAudioTracks().forEach((t) => {
+          t.enabled = !next;
+        });
+      }
+      return next;
+    });
+  };
+
+  const toggleVideo = () => {
+    setVideoOff((prev) => {
+      const next = !prev;
+      if (streamRef.current) {
+        streamRef.current.getVideoTracks().forEach((t) => {
+          t.enabled = !next;
+        });
+      }
+      return next;
+    });
+  };
 
   const handleTestAudio = () => {
     setTestingAudio(true);
@@ -46,21 +167,23 @@ export function LobbyScreen() {
         <div className="lobby-left-column">
           {/* Participant video mirror frame */}
           <div className="lobby-video-frame">
-            {videoOff ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`lobby-video-stream ${videoOff ? "hidden" : "is-live"}`}
+            />
+            {videoOff && (
               <div className="video-placeholder-off">
                 <span className="placeholder-icon">📷</span>
                 <span className="placeholder-text">Camera preview paused</span>
               </div>
-            ) : (
-              <img
-                src="/assets/candidate-preview.jpeg"
-                alt="Candidate video test mirror"
-                className="lobby-video-img"
-              />
             )}
             <div className="video-identity-overlay">
               <span className="identity-text">C-7K2 · You / preview only</span>
               {micMuted && <span className="mic-muted-pill">MIC MUTED</span>}
+              {videoOff && <span className="mic-muted-pill camera-off-pill">CAM OFF</span>}
             </div>
           </div>
 
@@ -70,7 +193,7 @@ export function LobbyScreen() {
               <button
                 type="button"
                 className={`media-icon-btn ${micMuted ? "muted" : ""}`}
-                onClick={() => setMicMuted(!micMuted)}
+                onClick={toggleMic}
                 title={micMuted ? "Unmute microphone" : "Mute microphone"}
                 aria-label={micMuted ? "Unmute microphone" : "Mute microphone"}
               >
@@ -95,7 +218,7 @@ export function LobbyScreen() {
               <button
                 type="button"
                 className={`media-icon-btn ${videoOff ? "muted" : ""}`}
-                onClick={() => setVideoOff(!videoOff)}
+                onClick={toggleVideo}
                 title={videoOff ? "Start camera" : "Pause camera"}
                 aria-label={videoOff ? "Start camera" : "Pause camera"}
               >
@@ -152,17 +275,29 @@ export function LobbyScreen() {
               <div className="audio-meter-strip">
                 <div className="meter-label-row">
                   <span>Microphone level</span>
-                  <span className="meter-status">{testingAudio ? "CALIBRATING..." : "HEALTHY (32dB)"}</span>
+                  <span className="meter-status">
+                    {testingAudio
+                      ? "CALIBRATING..."
+                      : audioLevel > 5
+                      ? `LIVE INPUT (${audioLevel}%)`
+                      : "CALIBRATED (SPEAK TO TEST)"}
+                  </span>
                 </div>
                 <div className="drawer-meter-bars">
-                  <span className="dbar dbar-1"></span>
-                  <span className="dbar dbar-2"></span>
-                  <span className="dbar dbar-3"></span>
-                  <span className="dbar dbar-4"></span>
-                  <span className="dbar dbar-5"></span>
-                  <span className="dbar dbar-6"></span>
-                  <span className="dbar dbar-7"></span>
-                  <span className="dbar dbar-8"></span>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((barIdx) => {
+                    const threshold = barIdx * 12;
+                    const isActive = audioLevel >= threshold || testingAudio;
+                    return (
+                      <span
+                        key={barIdx}
+                        className={`dbar dbar-${barIdx} ${isActive ? "dbar-active" : ""}`}
+                        style={{
+                          height: isActive ? `${Math.min(100, audioLevel + 10)}%` : "20%",
+                          transition: "height 0.1s ease",
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
               <div className="drawer-actions-row">
@@ -174,14 +309,16 @@ export function LobbyScreen() {
                 >
                   {testingAudio ? "Testing stream..." : "Verify audio hardware →"}
                 </button>
-                {testSuccess && <span className="test-verified-badge">✓ Verified</span>}
+                {(testSuccess || audioLevel > 15) && (
+                  <span className="test-verified-badge">✓ Signal Verified</span>
+                )}
               </div>
             </div>
           )}
 
           {/* Under-video caption */}
           <p className="media-preview-caption">
-            Microphone and camera are on for preview. Recording has not started.
+            Microphone and camera are active for preview. Recording has not started.
           </p>
 
           {/* What to expect panel */}
@@ -261,7 +398,7 @@ export function LobbyScreen() {
               <div className="ready-check-row">
                 <span className="check-key">Microphone & camera</span>
                 <span className="check-val">
-                  <span className="teal-check">✓</span> Working
+                  <span className="teal-check">✓</span> {videoOff ? "Camera paused" : "Working"}
                 </span>
               </div>
               <div className="ready-check-row">

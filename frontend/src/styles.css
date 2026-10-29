@@ -12467,3 +12467,2034 @@ button.test-device-btn:hover:not(:disabled),
   background: #1ae0cc !important;
   border-color: #1ae0cc !important;
 }
+
+
+/* ==========================================================================
+   ANTI-CHEAT & PROCTOR SECURITY (HackerRank-Style Tab Switch & HMAC Audit)
+   ========================================================================== */
+
+/* Fullscreen Warning Modal Backdrop */
+.anti-cheat-modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.82) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 999999 !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+  animation: antiCheatFadeIn 0.2s ease-out !important;
+}
+
+@keyframes antiCheatFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.anti-cheat-modal {
+  background: #121212 !important;
+  border: 1px solid #dc2626 !important;
+  box-shadow: 0 20px 60px rgba(220, 38, 38, 0.25), 0 0 0 1px rgba(220, 38, 38, 0.4) !important;
+  border-radius: 8px !important;
+  max-width: 520px !important;
+  width: 100% !important;
+  padding: 32px 32px 28px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.anti-cheat-icon-badge {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  background: rgba(220, 38, 38, 0.15) !important;
+  border: 1px solid rgba(220, 38, 38, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 26px !important;
+  margin-bottom: 16px !important;
+  animation: pulseIconBadge 2s infinite !important;
+}
+
+@keyframes pulseIconBadge {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.anti-cheat-eyebrow {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  color: #ef4444 !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
+}
+
+.anti-cheat-title {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 12px !important;
+  letter-spacing: -0.02em !important;
+}
+
+.anti-cheat-desc {
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  color: #a3a3a3 !important;
+  margin: 0 0 20px !important;
+}
+
+.anti-cheat-attempts-box {
+  width: 100% !important;
+  background: #181818 !important;
+  border: 1px solid #2b2b2b !important;
+  border-radius: 6px !important;
+  padding: 16px !important;
+  margin-bottom: 18px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.attempts-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 12px !important;
+}
+
+.attempts-header span {
+  color: #888888 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.attempts-header b {
+  color: #ef4444 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.attempts-pips {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+}
+
+.attempt-pip {
+  height: 8px !important;
+  background: #2a2a2a !important;
+  border-radius: 3px !important;
+  transition: all 0.2s ease !important;
+}
+
+.attempt-pip.violated {
+  background: #ef4444 !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6) !important;
+}
+
+.attempts-warning {
+  font-size: 12px !important;
+  color: #d1d5db !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+}
+
+.anti-cheat-audit-notice {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  background: rgba(23, 195, 178, 0.06) !important;
+  border: 1px solid rgba(23, 195, 178, 0.25) !important;
+  border-radius: 5px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 24px !important;
+  font-size: 12px !important;
+  color: #b0e7e1 !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+}
+
+.chain-shield {
+  font-size: 18px !important;
+  flex-shrink: 0 !important;
+}
+
+.anti-cheat-return-btn {
+  width: 100% !important;
+  background: #17c3b2 !important;
+  color: #080808 !important;
+  border: 1px solid #17c3b2 !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 13px 20px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.anti-cheat-return-btn:hover {
+  background: #1ee4d0 !important;
+  border-color: #1ee4d0 !important;
+  box-shadow: 0 4px 14px rgba(23, 195, 178, 0.35) !important;
+}
+
+/* Interviewer Topbar Proctor Badge & Simulation Button */
+.proctor-chain-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #1c1c1c !important;
+  border: 1px solid #333333 !important;
+  color: #ededed !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.proctor-chain-badge:hover {
+  border-color: #b15dff !important;
+  color: #ffffff !important;
+}
+
+.proctor-chain-badge.has-alerts {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+}
+
+.simulate-violation-btn {
+  background: #231633 !important;
+  border: 1px solid #8b3fd0 !important;
+  color: #d8b4fe !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 6px 12px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.simulate-violation-btn:hover {
+  background: #341e4d !important;
+  border-color: #b15dff !important;
+  color: #ffffff !important;
+}
+
+/* Interviewer Proctor Live Alert Toast */
+.interviewer-proctor-alert-toast {
+  position: fixed !important;
+  bottom: 28px !important;
+  right: 28px !important;
+  background: #181818 !important;
+  border: 1px solid #ef4444 !important;
+  border-left: 4px solid #ef4444 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 6px !important;
+  padding: 14px 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  z-index: 99999 !important;
+  cursor: pointer !important;
+  animation: slideToastIn 0.25s ease-out !important;
+}
+
+@keyframes slideToastIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.alert-toast-icon {
+  font-size: 22px !important;
+  flex-shrink: 0 !important;
+}
+
+.alert-toast-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.alert-toast-body b {
+  color: #ffffff !important;
+  font-size: 13px !important;
+}
+
+.alert-toast-body span {
+  color: #a3a3a3 !important;
+  font-size: 11px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+}
+
+.alert-view-btn {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 6px 12px !important;
+  border-radius: 3px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+}
+
+/* Cryptographic Audit Chain Drawer */
+.proctor-drawer-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  z-index: 999998 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+
+.proctor-drawer {
+  width: 480px !important;
+  max-width: 90vw !important;
+  height: 100vh !important;
+  background: #111111 !important;
+  border-left: 1px solid #282828 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  animation: slideDrawer 0.25s ease-out !important;
+}
+
+@keyframes slideDrawer {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.proctor-drawer-header {
+  padding: 24px 24px 20px !important;
+  border-bottom: 1px solid #222222 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+}
+
+.proctor-drawer-header small {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 0.1em !important;
+  color: #888888 !important;
+}
+
+.proctor-drawer-header h2 {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 6px 0 0 !important;
+}
+
+.close-drawer-btn {
+  background: #1e1e1e !important;
+  border: 1px solid #333333 !important;
+  color: #a3a3a3 !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.proctor-drawer-content {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  padding: 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+
+.chain-status-banner {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 14px 18px !important;
+  border-radius: 6px !important;
+}
+
+.chain-status-banner.status-valid {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+
+.chain-status-banner.status-compromised {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.5) !important;
+}
+
+.chain-icon {
+  font-size: 24px !important;
+}
+
+.chain-status-banner b {
+  display: block !important;
+  font-size: 14px !important;
+  color: #ffffff !important;
+}
+
+.chain-status-banner span {
+  font-size: 12px !important;
+  color: #a3a3a3 !important;
+}
+
+.chain-actions-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.chain-count-label {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  color: #888888 !important;
+  text-transform: uppercase !important;
+}
+
+.chain-simulate-btn {
+  background: #1e1e1e !important;
+  border: 1px solid #3b3b3b !important;
+  color: #d1d5db !important;
+  font-size: 11px !important;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+}
+
+.chain-simulate-btn:hover {
+  border-color: #b15dff !important;
+  color: #ffffff !important;
+}
+
+.chain-entries-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.chain-entry-card {
+  background: #161616 !important;
+  border: 1px solid #262626 !important;
+  border-radius: 6px !important;
+  padding: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.chain-entry-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+.entry-seq {
+  color: #17c3b2 !important;
+  font-weight: 600 !important;
+}
+
+.entry-type-pill {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+.entry-time {
+  color: #666666 !important;
+  margin-left: auto !important;
+}
+
+.chain-entry-payload code {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  color: #e5e5e5 !important;
+  background: #0f0f0f !important;
+  padding: 6px 8px !important;
+  border-radius: 4px !important;
+  display: block !important;
+  word-break: break-all !important;
+}
+
+.chain-entry-hashes {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  border-top: 1px solid #222222 !important;
+  padding-top: 6px !important;
+}
+
+.chain-entry-hashes small {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 9px !important;
+  color: #666666 !important;
+}
+
+.mono-hash {
+  color: #888888 !important;
+}
+
+/* ==========================================================================
+   STAGE A ONBOARDING: REAL WEBRTC & WEB AUDIO API STYLES
+   ========================================================================== */
+.camera-mirror-video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  transform: scaleX(-1) !important; /* mirror flip like a real webcam */
+  border-radius: 4px !important;
+}
+
+.camera-mirror-video.hidden {
+  display: none !important;
+}
+
+/* ==========================================================================
+   INVITATION LINK ATTACHED CARD (Candidate Login Screen)
+   ========================================================================== */
+.invite-link-attached-card {
+  width: 100% !important;
+  background: rgba(23, 195, 178, 0.08) !important;
+  border: 1px solid #17c3b2 !important;
+  border-radius: 6px !important;
+  padding: 20px 22px !important;
+  margin-bottom: 24px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  animation: inviteGlow 2.5s infinite alternate !important;
+}
+
+@keyframes inviteGlow {
+  from { box-shadow: 0 0 10px rgba(23, 195, 178, 0.15); }
+  to { box-shadow: 0 0 22px rgba(23, 195, 178, 0.35); }
+}
+
+.invite-banner-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.invite-live-dot {
+  color: #17c3b2 !important;
+  font-size: 14px !important;
+  animation: pulseDot 1.5s infinite !important;
+}
+
+@keyframes pulseDot {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+.invite-badge-text {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.1em !important;
+  color: #17c3b2 !important;
+  font-weight: 700 !important;
+}
+
+.invite-session-title {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+}
+
+.invite-session-details {
+  font-size: 13px !important;
+  color: #a3a3a3 !important;
+  line-height: 1.4 !important;
+  margin: 0 0 6px !important;
+}
+
+.invite-continue-btn {
+  width: 100% !important;
+  background: #17c3b2 !important;
+  color: #080808 !important;
+  border: 1px solid #17c3b2 !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 11px 18px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  text-align: center !important;
+}
+
+.invite-continue-btn:hover {
+  background: #1fead5 !important;
+}
+
+/* ==========================================================================
+   DASHBOARD COPY INVITATION BUTTON & TOAST
+   ========================================================================== */
+.callout-actions-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 10px !important;
+}
+
+.copy-invite-link-btn {
+  background: #1c1c1c !important;
+  border: 1px solid #333333 !important;
+  color: #e5e5e5 !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 8px 14px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.copy-invite-link-btn:hover {
+  border-color: #17c3b2 !important;
+  color: #17c3b2 !important;
+}
+
+.copy-link-toast-pill {
+  margin-top: 12px !important;
+  background: rgba(23, 195, 178, 0.15) !important;
+  border: 1px solid #17c3b2 !important;
+  color: #17c3b2 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 6px 12px !important;
+  border-radius: 4px !important;
+  display: inline-block !important;
+  animation: fadeInPill 0.2s ease-out !important;
+}
+
+@keyframes fadeInPill {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.invite-management-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  margin-top: 14px !important;
+}
+
+.copy-link-text-btn {
+  color: #b15dff !important;
+}
+
+.copy-link-text-btn:hover {
+  color: #c98eff !important;
+}
+
+
+/* ==========================================================================
+   ANTI-CHEAT & PROCTOR SECURITY (HackerRank-Style Tab Switch & HMAC Audit)
+   ========================================================================== */
+
+/* Fullscreen Warning Modal Backdrop */
+.anti-cheat-modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.82) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 999999 !important;
+  padding: 24px !important;
+  box-sizing: border-box !important;
+  animation: antiCheatFadeIn 0.2s ease-out !important;
+}
+
+@keyframes antiCheatFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.anti-cheat-modal {
+  background: #121212 !important;
+  border: 1px solid #dc2626 !important;
+  box-shadow: 0 20px 60px rgba(220, 38, 38, 0.25), 0 0 0 1px rgba(220, 38, 38, 0.4) !important;
+  border-radius: 8px !important;
+  max-width: 520px !important;
+  width: 100% !important;
+  padding: 32px 32px 28px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+.anti-cheat-icon-badge {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 50% !important;
+  background: rgba(220, 38, 38, 0.15) !important;
+  border: 1px solid rgba(220, 38, 38, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 26px !important;
+  margin-bottom: 16px !important;
+  animation: pulseIconBadge 2s infinite !important;
+}
+
+@keyframes pulseIconBadge {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
+.anti-cheat-eyebrow {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.12em !important;
+  color: #ef4444 !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
+}
+
+.anti-cheat-title {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 12px !important;
+  letter-spacing: -0.02em !important;
+}
+
+.anti-cheat-desc {
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  color: #a3a3a3 !important;
+  margin: 0 0 20px !important;
+}
+
+.anti-cheat-attempts-box {
+  width: 100% !important;
+  background: #181818 !important;
+  border: 1px solid #2b2b2b !important;
+  border-radius: 6px !important;
+  padding: 16px !important;
+  margin-bottom: 18px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.attempts-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 12px !important;
+}
+
+.attempts-header span {
+  color: #888888 !important;
+  letter-spacing: 0.05em !important;
+}
+
+.attempts-header b {
+  color: #ef4444 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+
+.attempts-pips {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 8px !important;
+}
+
+.attempt-pip {
+  height: 8px !important;
+  background: #2a2a2a !important;
+  border-radius: 3px !important;
+  transition: all 0.2s ease !important;
+}
+
+.attempt-pip.violated {
+  background: #ef4444 !important;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6) !important;
+}
+
+.attempts-warning {
+  font-size: 12px !important;
+  color: #d1d5db !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+}
+
+.anti-cheat-audit-notice {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  background: rgba(23, 195, 178, 0.06) !important;
+  border: 1px solid rgba(23, 195, 178, 0.25) !important;
+  border-radius: 5px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 24px !important;
+  font-size: 12px !important;
+  color: #b0e7e1 !important;
+  line-height: 1.4 !important;
+  text-align: left !important;
+}
+
+.chain-shield {
+  font-size: 18px !important;
+  flex-shrink: 0 !important;
+}
+
+.anti-cheat-return-btn {
+  width: 100% !important;
+  background: #17c3b2 !important;
+  color: #080808 !important;
+  border: 1px solid #17c3b2 !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 13px 20px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.anti-cheat-return-btn:hover {
+  background: #1ee4d0 !important;
+  border-color: #1ee4d0 !important;
+  box-shadow: 0 4px 14px rgba(23, 195, 178, 0.35) !important;
+}
+
+/* Interviewer Topbar Proctor Badge & Simulation Button */
+.proctor-chain-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #1c1c1c !important;
+  border: 1px solid #333333 !important;
+  color: #ededed !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.proctor-chain-badge:hover {
+  border-color: #b15dff !important;
+  color: #ffffff !important;
+}
+
+.proctor-chain-badge.has-alerts {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+}
+
+.simulate-violation-btn {
+  background: #231633 !important;
+  border: 1px solid #8b3fd0 !important;
+  color: #d8b4fe !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 6px 12px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.simulate-violation-btn:hover {
+  background: #341e4d !important;
+  border-color: #b15dff !important;
+  color: #ffffff !important;
+}
+
+/* Interviewer Proctor Live Alert Toast */
+.interviewer-proctor-alert-toast {
+  position: fixed !important;
+  bottom: 28px !important;
+  right: 28px !important;
+  background: #181818 !important;
+  border: 1px solid #ef4444 !important;
+  border-left: 4px solid #ef4444 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 6px !important;
+  padding: 14px 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  z-index: 99999 !important;
+  cursor: pointer !important;
+  animation: slideToastIn 0.25s ease-out !important;
+}
+
+@keyframes slideToastIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.alert-toast-icon {
+  font-size: 22px !important;
+  flex-shrink: 0 !important;
+}
+
+.alert-toast-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.alert-toast-body b {
+  color: #ffffff !important;
+  font-size: 13px !important;
+}
+
+.alert-toast-body span {
+  color: #a3a3a3 !important;
+  font-size: 11px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+}
+
+.alert-view-btn {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border: none !important;
+  padding: 6px 12px !important;
+  border-radius: 3px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+}
+
+/* Cryptographic Audit Chain Drawer */
+.proctor-drawer-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  z-index: 999998 !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+
+.proctor-drawer {
+  width: 480px !important;
+  max-width: 90vw !important;
+  height: 100vh !important;
+  background: #111111 !important;
+  border-left: 1px solid #282828 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  animation: slideDrawer 0.25s ease-out !important;
+}
+
+@keyframes slideDrawer {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.proctor-drawer-header {
+  padding: 24px 24px 20px !important;
+  border-bottom: 1px solid #222222 !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+}
+
+.proctor-drawer-header small {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 0.1em !important;
+  color: #888888 !important;
+}
+
+.proctor-drawer-header h2 {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 6px 0 0 !important;
+}
+
+.close-drawer-btn {
+  background: #1e1e1e !important;
+  border: 1px solid #333333 !important;
+  color: #a3a3a3 !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.proctor-drawer-content {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  padding: 24px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+}
+
+.chain-status-banner {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 14px 18px !important;
+  border-radius: 6px !important;
+}
+
+.chain-status-banner.status-valid {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+}
+
+.chain-status-banner.status-compromised {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.5) !important;
+}
+
+.chain-icon {
+  font-size: 24px !important;
+}
+
+.chain-status-banner b {
+  display: block !important;
+  font-size: 14px !important;
+  color: #ffffff !important;
+}
+
+.chain-status-banner span {
+  font-size: 12px !important;
+  color: #a3a3a3 !important;
+}
+
+.chain-actions-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.chain-count-label {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  color: #888888 !important;
+  text-transform: uppercase !important;
+}
+
+.chain-simulate-btn {
+  background: #1e1e1e !important;
+  border: 1px solid #3b3b3b !important;
+  color: #d1d5db !important;
+  font-size: 11px !important;
+  padding: 5px 10px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+}
+
+.chain-simulate-btn:hover {
+  border-color: #b15dff !important;
+  color: #ffffff !important;
+}
+
+.chain-entries-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+}
+
+.chain-entry-card {
+  background: #161616 !important;
+  border: 1px solid #262626 !important;
+  border-radius: 6px !important;
+  padding: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.chain-entry-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+.entry-seq {
+  color: #17c3b2 !important;
+  font-weight: 600 !important;
+}
+
+.entry-type-pill {
+  background: rgba(239, 68, 68, 0.15) !important;
+  color: #ef4444 !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+.entry-time {
+  color: #666666 !important;
+  margin-left: auto !important;
+}
+
+.chain-entry-payload code {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  color: #e5e5e5 !important;
+  background: #0f0f0f !important;
+  padding: 6px 8px !important;
+  border-radius: 4px !important;
+  display: block !important;
+  word-break: break-all !important;
+}
+
+.chain-entry-hashes {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  border-top: 1px solid #222222 !important;
+  padding-top: 6px !important;
+}
+
+.chain-entry-hashes small {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 9px !important;
+  color: #666666 !important;
+}
+
+.mono-hash {
+  color: #888888 !important;
+}
+
+/* ==========================================================================
+   STAGE A ONBOARDING: REAL WEBRTC & WEB AUDIO API STYLES
+   ========================================================================== */
+.camera-mirror-video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+  transform: scaleX(-1) !important; /* mirror flip like a real webcam */
+  border-radius: 4px !important;
+}
+
+.camera-mirror-video.hidden {
+  display: none !important;
+}
+
+/* ==========================================================================
+   INVITATION LINK ATTACHED CARD (Candidate Login Screen)
+   ========================================================================== */
+.invite-link-attached-card {
+  width: 100% !important;
+  background: rgba(23, 195, 178, 0.08) !important;
+  border: 1px solid #17c3b2 !important;
+  border-radius: 6px !important;
+  padding: 20px 22px !important;
+  margin-bottom: 24px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  animation: inviteGlow 2.5s infinite alternate !important;
+}
+
+@keyframes inviteGlow {
+  from { box-shadow: 0 0 10px rgba(23, 195, 178, 0.15); }
+  to { box-shadow: 0 0 22px rgba(23, 195, 178, 0.35); }
+}
+
+.invite-banner-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.invite-live-dot {
+  color: #17c3b2 !important;
+  font-size: 14px !important;
+  animation: pulseDot 1.5s infinite !important;
+}
+
+@keyframes pulseDot {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+.invite-badge-text {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.1em !important;
+  color: #17c3b2 !important;
+  font-weight: 700 !important;
+}
+
+.invite-session-title {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 !important;
+}
+
+.invite-session-details {
+  font-size: 13px !important;
+  color: #a3a3a3 !important;
+  line-height: 1.4 !important;
+  margin: 0 0 6px !important;
+}
+
+.invite-continue-btn {
+  width: 100% !important;
+  background: #17c3b2 !important;
+  color: #080808 !important;
+  border: 1px solid #17c3b2 !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 11px 18px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  text-align: center !important;
+}
+
+.invite-continue-btn:hover {
+  background: #1fead5 !important;
+}
+
+/* ==========================================================================
+   DASHBOARD COPY INVITATION BUTTON & TOAST
+   ========================================================================== */
+.callout-actions-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 10px !important;
+}
+
+.copy-invite-link-btn {
+  background: #1c1c1c !important;
+  border: 1px solid #333333 !important;
+  color: #e5e5e5 !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 8px 14px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.copy-invite-link-btn:hover {
+  border-color: #17c3b2 !important;
+  color: #17c3b2 !important;
+}
+
+.copy-link-toast-pill {
+  margin-top: 12px !important;
+  background: rgba(23, 195, 178, 0.15) !important;
+  border: 1px solid #17c3b2 !important;
+  color: #17c3b2 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 6px 12px !important;
+  border-radius: 4px !important;
+  display: inline-block !important;
+  animation: fadeInPill 0.2s ease-out !important;
+}
+
+@keyframes fadeInPill {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.invite-management-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  margin-top: 14px !important;
+}
+
+.copy-link-text-btn {
+  color: #b15dff !important;
+}
+
+.copy-link-text-btn:hover {
+  color: #c98eff !important;
+}
+
+
+/* ==========================================================================
+   WORKSPACE LIVE WEBCAM & SELF VIDEO STREAM
+   ========================================================================== */
+.self-video-stream {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 3px !important;
+  transform: scaleX(-1) !important;
+  display: block !important;
+}
+
+.self-video-stream.hidden {
+  display: none !important;
+}
+
+.self-video-fallback-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 3px !important;
+  display: block !important;
+}
+
+/* ==========================================================================
+   SMARTHIRE SPEECH VERIFICATION BOX (ConsentScreen)
+   ========================================================================== */
+.smarthire-speech-box {
+  width: 100% !important;
+  border-radius: 6px !important;
+  padding: 16px 18px !important;
+  box-sizing: border-box !important;
+  margin-top: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  transition: all 0.25s ease !important;
+}
+
+.smarthire-speech-box.is-waiting {
+  background: rgba(245, 158, 11, 0.06) !important;
+  border: 1px dashed #f59e0b !important;
+}
+
+.smarthire-speech-box.is-verified {
+  background: rgba(23, 195, 178, 0.08) !important;
+  border: 1px solid #17c3b2 !important;
+}
+
+.smarthire-box-top {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.smarthire-brand-tag {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 0.08em !important;
+  color: #888888 !important;
+  text-transform: uppercase !important;
+}
+
+.smarthire-status-badge {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 3px 8px !important;
+  border-radius: 3px !important;
+}
+
+.smarthire-status-badge.badge-amber {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+}
+
+.smarthire-status-badge.badge-green {
+  background: rgba(23, 195, 178, 0.2) !important;
+  color: #17c3b2 !important;
+}
+
+.smarthire-prompt-label {
+  font-size: 12px !important;
+  color: #d1d5db !important;
+  margin: 0 !important;
+}
+
+.smarthire-sentence-quote {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  font-style: italic !important;
+  color: #ffffff !important;
+  background: #141414 !important;
+  border: 1px solid #2d2d2d !important;
+  padding: 10px 14px !important;
+  border-radius: 4px !important;
+  line-height: 1.45 !important;
+}
+
+.smarthire-footer-state {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 12px !important;
+  margin-top: 2px !important;
+}
+
+.smarthire-success-msg {
+  color: #17c3b2 !important;
+  font-weight: 600 !important;
+}
+
+.smarthire-listening-msg {
+  color: #fbbf24 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+.smarthire-override-btn {
+  background: none !important;
+  border: 1px solid #444444 !important;
+  color: #a3a3a3 !important;
+  font-size: 11px !important;
+  padding: 4px 8px !important;
+  border-radius: 3px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.smarthire-override-btn:hover {
+  border-color: #17c3b2 !important;
+  color: #17c3b2 !important;
+}
+
+.btn-unverified {
+  background: #2a2a2a !important;
+  border-color: #444444 !important;
+  color: #888888 !important;
+  cursor: not-allowed !important;
+}
+
+/* ==========================================================================
+   TERMINAL DISQUALIFICATION & WARNING MODAL SIZING FIXES
+   ========================================================================== */
+.anti-cheat-modal-backdrop {
+  overflow-y: auto !important;
+  padding: 24px !important;
+}
+
+.anti-cheat-modal {
+  position: relative !important;
+  max-height: 88vh !important;
+  overflow-y: auto !important;
+  margin: auto !important;
+  padding: 28px 28px 24px !important;
+}
+
+.anti-cheat-close-x {
+  position: absolute !important;
+  top: 14px !important;
+  right: 14px !important;
+  background: #1e1e1e !important;
+  border: 1px solid #333333 !important;
+  color: #a3a3a3 !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.15s ease !important;
+}
+
+.anti-cheat-close-x:hover {
+  color: #ffffff !important;
+  border-color: #666666 !important;
+}
+
+.anti-cheat-btn-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+.anti-cheat-secondary-btn {
+  width: 100% !important;
+  background: #181818 !important;
+  border: 1px solid #333333 !important;
+  color: #d1d5db !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 10px 16px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.anti-cheat-secondary-btn:hover {
+  border-color: #555555 !important;
+  color: #ffffff !important;
+}
+
+/* Terminal Disqualification Modal (3/3 Violations) */
+.terminal-backdrop {
+  background: rgba(0, 0, 0, 0.9) !important;
+}
+
+.terminal-disqualification-modal {
+  border: 2px solid #ef4444 !important;
+  box-shadow: 0 0 60px rgba(239, 68, 68, 0.45) !important;
+}
+
+.terminal-icon-badge {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+  background: rgba(239, 68, 68, 0.2) !important;
+  border: 2px solid #ef4444 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 32px !important;
+  margin-bottom: 16px !important;
+  animation: pulseDisqualified 1.5s infinite !important;
+}
+
+@keyframes pulseDisqualified {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+  70% { transform: scale(1.06); box-shadow: 0 0 0 16px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.terminal-eyebrow {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  letter-spacing: 0.15em !important;
+  color: #ef4444 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  margin-bottom: 8px !important;
+}
+
+.terminal-title {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 12px !important;
+}
+
+.terminal-desc {
+  font-size: 14px !important;
+  color: #d1d5db !important;
+  line-height: 1.55 !important;
+  margin: 0 0 18px !important;
+}
+
+.terminal-audit-box {
+  width: 100% !important;
+  background: #181818 !important;
+  border: 1px solid #333333 !important;
+  border-radius: 6px !important;
+  padding: 14px 16px !important;
+  margin-bottom: 16px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  text-align: left !important;
+}
+
+.terminal-audit-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+.terminal-audit-row span {
+  color: #888888 !important;
+}
+
+.red-tag {
+  color: #ef4444 !important;
+  font-weight: 700 !important;
+}
+
+.mono-audit-id {
+  color: #17c3b2 !important;
+}
+
+.terminal-subtext {
+  font-size: 12px !important;
+  color: #888888 !important;
+  line-height: 1.45 !important;
+  margin: 0 0 20px !important;
+}
+
+.terminal-actions-row {
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.terminal-exit-btn {
+  width: 100% !important;
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border: 1px solid #ef4444 !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 12px 20px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.terminal-exit-btn:hover {
+  background: #dc2626 !important;
+}
+
+.terminal-reset-test-btn {
+  background: none !important;
+  border: none !important;
+  color: #888888 !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  text-decoration: underline !important;
+  padding: 4px 8px !important;
+}
+
+.terminal-reset-test-btn:hover {
+  color: #d1d5db !important;
+}
+
+
+/* ==========================================================================
+   VIRTUAL CAMERA DETECTION & 1-CLICK LAPTOP CAMERA SWITCH
+   ========================================================================== */
+.virtual-cam-warning-card {
+  width: 100% !important;
+  background: rgba(245, 158, 11, 0.08) !important;
+  border: 1px solid #f59e0b !important;
+  border-radius: 6px !important;
+  padding: 12px 14px !important;
+  box-sizing: border-box !important;
+  margin-top: 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.virtual-warning-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 12px !important;
+  color: #fbbf24 !important;
+}
+
+.virtual-warning-row .warning-icon {
+  font-size: 14px !important;
+}
+
+.virtual-cam-warning-card p {
+  font-size: 11px !important;
+  color: #d1d5db !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+}
+
+.switch-laptop-cam-action {
+  background: #17c3b2 !important;
+  color: #080808 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 8px 14px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  text-align: center !important;
+  align-self: flex-start !important;
+}
+
+.switch-laptop-cam-action:hover {
+  background: #1ee4d0 !important;
+}
+
+
+/* ==========================================================================
+   FACIAL PROCTORING & MULTIPLE PEOPLE DETECTION (ConsentScreen)
+   ========================================================================== */
+.face-detection-badge {
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  padding: 4px 10px !important;
+  border-radius: 4px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  z-index: 20 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  backdrop-filter: blur(4px) !important;
+  transition: all 0.25s ease !important;
+}
+
+.face-detection-badge.face-ok {
+  background: rgba(16, 185, 129, 0.85) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.4) !important;
+}
+
+.face-detection-badge.face-alert {
+  background: rgba(220, 38, 38, 0.9) !important;
+  color: #ffffff !important;
+  border: 1px solid #ef4444 !important;
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.6) !important;
+  animation: pulseFaceAlert 1.2s infinite ease-in-out !important;
+}
+
+.face-detection-badge.face-none {
+  background: rgba(245, 158, 11, 0.85) !important;
+  color: #0f172a !important;
+  border: 1px solid #f59e0b !important;
+}
+
+@keyframes pulseFaceAlert {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 12px rgba(220, 38, 38, 0.5);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 20px rgba(220, 38, 38, 0.85);
+  }
+}
+
+.proctor-multiple-faces-card {
+  width: 100% !important;
+  background: rgba(220, 38, 38, 0.1) !important;
+  border: 1.5px solid #ef4444 !important;
+  border-radius: 6px !important;
+  padding: 12px 16px !important;
+  box-sizing: border-box !important;
+  margin-top: 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  animation: fadeInDown 0.25s ease-out !important;
+}
+
+.proctor-faces-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #ef4444 !important;
+}
+
+.proctor-multiple-faces-card p {
+  font-size: 11px !important;
+  color: #fca5a5 !important;
+  line-height: 1.45 !important;
+  margin: 0 !important;
+}
+
+/* ==========================================================================
+   SMARTHIRE INTERACTIVE WHITE-TO-GREEN SPEECH ANIMATION
+   ========================================================================== */
+.smarthire-sentence-quote.animated-speech-flow {
+  background: rgba(0, 0, 0, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px !important;
+  padding: 14px 16px !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px 6px !important;
+  line-height: 1.8 !important;
+}
+
+.speech-word-token {
+  display: inline-block !important;
+  font-family: 'IBM Plex Mono', 'DM Mono', monospace !important;
+  font-size: 15px !important;
+  letter-spacing: 0.02em !important;
+}
+
+.speech-word-token.is-word-white {
+  color: #f3f4f6 !important;
+  opacity: 0.85 !important;
+  transition: all 0.2s ease !important;
+}
+
+.speech-word-token.is-word-green {
+  color: #10b981 !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.7), 0 0 20px rgba(16, 185, 129, 0.35) !important;
+  transform: scale(1.06) !important;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.spoken-live-transcript-box {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px dashed rgba(255, 255, 255, 0.15) !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  color: #94a3b8 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.spoken-live-transcript-box small {
+  color: #64748b !important;
+  font-weight: 700 !important;
+}
+
+.speech-mismatch-banner {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  color: #f87171 !important;
+  border-radius: 4px !important;
+  padding: 8px 12px !important;
+  font-size: 11px !important;
+}
+
+.smarthire-btn-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin-left: auto !important;
+}
+
+.smarthire-retry-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
+  padding: 5px 12px !important;
+  border-radius: 4px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.smarthire-retry-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.smarthire-status-badge.badge-red {
+  background: rgba(220, 38, 38, 0.2) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(220, 38, 38, 0.4) !important;
+}
+
+/* ==========================================================================
+   WORKSPACE WEBRTC CONTROLS & SELF-VIDEO BADGE FIX
+   ========================================================================== */
+.self-video {
+  width: 92px !important;
+  height: 60px !important;
+  border-radius: 4px !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+  overflow: hidden !important;
+  border: 1px solid #333333 !important;
+  background: #000000 !important;
+}
+
+.self-video-stream {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 3px !important;
+  transform: scaleX(-1) !important;
+  display: block !important;
+  z-index: 1 !important;
+}
+
+.self-video-badge {
+  position: absolute !important;
+  bottom: 2px !important;
+  left: 2px !important;
+  max-width: calc(100% - 4px) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  z-index: 10 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 9px !important;
+  color: #ffffff !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  padding: 1px 4px !important;
+  border-radius: 2px !important;
+  margin: 0 !important;
+  pointer-events: none !important;
+}
+
+.self-video-paused {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: #111111 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #888888 !important;
+  font-size: 9px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  gap: 2px !important;
+  z-index: 2 !important;
+}
+
+.device-control.muted {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #ef4444 !important;
+  border-color: rgba(239, 68, 68, 0.5) !important;
+}
+
+/* ==========================================================================
+   MONACO PROCTORED CLIPBOARD ALERT TOAST
+   ========================================================================== */
+.monaco-editor-shell {
+  position: relative !important;
+}
+
+.monaco-clipboard-alert-toast {
+  position: absolute !important;
+  top: 14px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: rgba(185, 28, 28, 0.96) !important;
+  color: #ffffff !important;
+  border: 1px solid #ef4444 !important;
+  padding: 8px 18px !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+  z-index: 1000 !important;
+  animation: slideDownToast 0.25s ease-out !important;
+  pointer-events: none !important;
+}
+
+@keyframes slideDownToast {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ==========================================================================
+   LOBBY VIDEO STREAM & CONTROLS
+   ========================================================================== */
+.lobby-video-stream {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  transform: scaleX(-1) !important;
+  display: block !important;
+}
+
+.lobby-video-stream.hidden {
+  display: none !important;
+}
+
+.camera-off-pill {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.dbar.dbar-active {
+  background: #10b981 !important;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6) !important;
+}

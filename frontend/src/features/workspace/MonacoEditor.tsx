@@ -9,11 +9,27 @@ function getAppTheme(): "light" | "dark" {
 export function MonacoEditor({
   value,
   onChange,
+  preventClipboard = false,
+  onClipboardBlocked,
 }: {
   value: string;
   onChange: (value: string) => void;
+  preventClipboard?: boolean;
+  onClipboardBlocked?: (action: string) => void;
 }) {
   const [theme, setTheme] = useState<"light" | "dark">(() => getAppTheme());
+  const [clipboardWarning, setClipboardWarning] = useState<string>("");
+
+  const triggerClipboardBlocked = (action: string) => {
+    const msg = action === "paste"
+      ? "⚠️ Pasting external code is disabled in this proctored interview"
+      : "⚠️ Copying code from editor is restricted in this proctored interview";
+    setClipboardWarning(msg);
+    onClipboardBlocked?.(action);
+    setTimeout(() => {
+      setClipboardWarning("");
+    }, 3500);
+  };
 
   useEffect(() => {
     const app = document.querySelector(".app");
@@ -32,7 +48,7 @@ export function MonacoEditor({
     return () => observer.disconnect();
   }, []);
 
-  const handleEditorDidMount: OnMount = (editor) => {
+  const handleEditorDidMount: OnMount = (editor, monaco) => {
     editor.focus();
     editor.updateOptions({
       cursorBlinking: "blink",
@@ -43,13 +59,81 @@ export function MonacoEditor({
       lineNumbersMinChars: 4,
       minimap: { enabled: false },
       renderLineHighlight: "line",
+      contextmenu: !preventClipboard,
     });
+
+    if (preventClipboard) {
+      // 1. Intercept Monaco keydown shortcuts
+      editor.onKeyDown((e) => {
+        const isModifier = e.ctrlKey || e.metaKey;
+        if (isModifier && (e.code === "KeyV" || e.keyCode === 52)) {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerClipboardBlocked("paste");
+        }
+        if (isModifier && (e.code === "KeyC" || e.keyCode === 33)) {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerClipboardBlocked("copy");
+        }
+        if (isModifier && (e.code === "KeyX" || e.keyCode === 54)) {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerClipboardBlocked("cut");
+        }
+      });
+
+      // 2. Add Monaco command overrides
+      try {
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyV, () => {
+          triggerClipboardBlocked("paste");
+        });
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyC, () => {
+          triggerClipboardBlocked("copy");
+        });
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyX, () => {
+          triggerClipboardBlocked("cut");
+        });
+      } catch (err) {
+        // ignore command override failure
+      }
+
+      // 3. Attach DOM-level capturing event listeners to prevent paste into Monaco textarea
+      const domNode = editor.getDomNode();
+      if (domNode) {
+        const handleDomPaste = (e: Event) => {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerClipboardBlocked("paste");
+        };
+        const handleDomCopy = (e: Event) => {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerClipboardBlocked("copy");
+        };
+        const handleDomCut = (e: Event) => {
+          e.preventDefault();
+          e.stopPropagation();
+          triggerClipboardBlocked("cut");
+        };
+
+        domNode.addEventListener("paste", handleDomPaste, true);
+        domNode.addEventListener("copy", handleDomCopy, true);
+        domNode.addEventListener("cut", handleDomCut, true);
+      }
+    }
   };
 
   const activeTheme = theme === "dark" ? "intervia-dark" : "intervia-light";
 
   return (
     <div className="monaco-editor-shell" aria-label="Code editor shell">
+      {clipboardWarning && (
+        <div className="monaco-clipboard-alert-toast">
+          <span className="toast-icon">🚫</span>
+          <span>{clipboardWarning}</span>
+        </div>
+      )}
       <Editor
         height="420px"
         language="python"
@@ -143,7 +227,7 @@ export function MonacoEditor({
           wordWrap: "on",
           stickyScroll: { enabled: false },
           fixedOverflowWidgets: false,
-          contextmenu: true,
+          contextmenu: !preventClipboard,
           glyphMargin: false,
           folding: false,
           scrollbar: {
