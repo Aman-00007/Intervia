@@ -168,80 +168,44 @@ export function LobbyScreen() {
           {/* Participant video mirror frame */}
           <div className="lobby-video-frame">
             <video
-              ref={videoRef}
+              ref={(node) => {
+                videoRef.current = node;
+                if (node && streamRef.current && node.srcObject !== streamRef.current) {
+                  node.srcObject = streamRef.current;
+                  node.play().catch(() => {});
+                }
+              }}
               autoPlay
               playsInline
               muted
-              className={`lobby-video-stream ${videoOff ? "hidden" : "is-live"}`}
+              className="lobby-video-stream is-live"
             />
-            {videoOff && (
-              <div className="video-placeholder-off">
-                <span className="placeholder-icon">📷</span>
-                <span className="placeholder-text">Camera preview paused</span>
-              </div>
-            )}
             <div className="video-identity-overlay">
-              <span className="identity-text">C-7K2 · You / preview only</span>
-              {micMuted && <span className="mic-muted-pill">MIC MUTED</span>}
-              {videoOff && <span className="mic-muted-pill camera-off-pill">CAM OFF</span>}
+              <span className="identity-text">C-7K2 · You / live hardware stream</span>
+              <span className="mic-muted-pill camera-live-pill">● WEBRTC 720P</span>
             </div>
           </div>
 
-          {/* Media controls bar */}
+          {/* Media status bar: Locked for candidate proctoring */}
           <div className="lobby-media-controls-bar">
             <div className="controls-left-group">
-              <button
-                type="button"
-                className={`media-icon-btn ${micMuted ? "muted" : ""}`}
-                onClick={toggleMic}
-                title={micMuted ? "Unmute microphone" : "Mute microphone"}
-                aria-label={micMuted ? "Unmute microphone" : "Mute microphone"}
-              >
-                {micMuted ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                    <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                    <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
-                    <line x1="12" y1="19" x2="12" y2="23" />
-                    <line x1="8" y1="23" x2="16" y2="23" />
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="23" />
-                    <line x1="8" y1="23" x2="16" y2="23" />
-                  </svg>
-                )}
-              </button>
-
-              <button
-                type="button"
-                className={`media-icon-btn ${videoOff ? "muted" : ""}`}
-                onClick={toggleVideo}
-                title={videoOff ? "Start camera" : "Pause camera"}
-                aria-label={videoOff ? "Start camera" : "Pause camera"}
-              >
-                {videoOff ? (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                    <path d="M21 21l-3.34-3.34L16 16.27V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1.27l-3.34-3.34" />
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                  </svg>
-                ) : (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                )}
-              </button>
+              <div className="candidate-locked-badge-group">
+                <span className="candidate-proctor-pill">
+                  <span className="proctor-status-dot active" />
+                  MIC LOCKED ON
+                </span>
+                <span className="candidate-proctor-pill">
+                  <span className="proctor-status-dot active" />
+                  CAM LOCKED ON
+                </span>
+              </div>
 
               <button
                 type="button"
                 className={`media-icon-btn ${showSettings ? "active" : ""}`}
                 onClick={() => setShowSettings(!showSettings)}
-                title="Device settings & test"
-                aria-label="Device settings & test"
+                title="Device diagnostic & microphone test"
+                aria-label="Device diagnostic & microphone test"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3" />

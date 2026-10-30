@@ -10871,13 +10871,49 @@ label.consent-check small {
 .camera-preview-wrapper {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  min-height: 280px;
-  max-height: 340px;
+  aspect-ratio: 4 / 3;
+  min-height: 340px;
+  max-height: 440px;
   overflow: hidden;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid #222222;
   background: #000000;
+}
+
+.candidate-locked-badge-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.candidate-proctor-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: #17c3b2;
+  background: rgba(23, 195, 178, 0.1);
+  border: 1px solid rgba(23, 195, 178, 0.35);
+  padding: 5px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.proctor-status-dot.active {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #17c3b2;
+  box-shadow: 0 0 8px #17c3b2;
+  animation: pulse-dot 2s infinite;
+}
+
+.camera-live-pill {
+  color: #17c3b2 !important;
+  background: rgba(23, 195, 178, 0.15) !important;
+  border: 1px solid rgba(23, 195, 178, 0.4) !important;
 }
 
 .camera-mirror-img {
@@ -11350,14 +11386,16 @@ label.consent-check small {
 
 /* 1. NVIDIA Nemotron AI Assistance Box in Live Workspace */
 .nemotron-ai-panel {
-  background: #111111 !important;
-  border: 1px solid #282828 !important;
-  border-radius: 8px !important;
-  padding: 20px !important;
+  background: radial-gradient(circle at 10% 10%, rgba(118, 185, 0, 0.05), transparent 60%), #0d1117 !important;
+  border: 1px solid rgba(118, 185, 0, 0.28) !important;
+  border-radius: 12px !important;
+  padding: 22px !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 16px !important;
   box-sizing: border-box !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  position: relative !important;
 }
 
 .nemotron-header {
@@ -11370,7 +11408,16 @@ label.consent-check small {
 .nemotron-title-col {
   display: flex !important;
   flex-direction: column !important;
-  gap: 6px !important;
+  gap: 4px !important;
+}
+
+.nemotron-eyebrow {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  color: #76b900 !important;
+  text-transform: uppercase !important;
 }
 
 .nemotron-title-col h2 {
@@ -11379,16 +11426,25 @@ label.consent-check small {
   font-weight: 700 !important;
   color: #ffffff !important;
   margin: 0 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.nemotron-box-desc {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12.5px !important;
+  line-height: 1.5 !important;
+  color: #9ca3af !important;
+  margin: 4px 0 8px 0 !important;
 }
 
 .nemotron-chip {
   display: inline-flex !important;
   align-items: center !important;
   gap: 6px !important;
-  background: #181818 !important;
-  border: 1px solid #2e2e2e !important;
-  padding: 3px 8px !important;
-  border-radius: 12px !important;
+  background: rgba(118, 185, 0, 0.1) !important;
+  border: 1px solid rgba(118, 185, 0, 0.3) !important;
+  padding: 3px 10px !important;
+  border-radius: 16px !important;
   width: fit-content !important;
 }
 
@@ -11397,14 +11453,14 @@ label.consent-check small {
   font-size: 10px !important;
   font-weight: 700 !important;
   color: #76b900 !important;
-  /* NVIDIA Green */
   letter-spacing: 0.08em !important;
 }
 
 .nemotron-tag {
   font-family: 'Inter', sans-serif !important;
   font-size: 11px !important;
-  color: #d1d5db !important;
+  font-weight: 500 !important;
+  color: #e4e4e7 !important;
 }
 
 .nemotron-active-pulse {
@@ -11415,15 +11471,63 @@ label.consent-check small {
   box-shadow: 0 0 6px #76b900 !important;
 }
 
+.status-pill.private-pill {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 20px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  color: #a1a1aa !important;
+  padding: 4px 10px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
 .nemotron-card {
-  background: #151515 !important;
-  border: 1px solid #262626 !important;
-  border-radius: 6px !important;
+  background: #111720 !important;
+  border: 1px solid rgba(118, 185, 0, 0.22) !important;
+  border-radius: 10px !important;
+  padding: 16px 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+.nemotron-screen-card {
+  background: rgba(14, 165, 233, 0.08) !important;
+  border: 1px solid rgba(14, 165, 233, 0.3) !important;
+  border-radius: 10px !important;
   padding: 14px 16px !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 10px !important;
-  box-sizing: border-box !important;
+}
+
+.screen-observation-text {
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  color: #e0f2fe !important;
+  margin: 0 !important;
+}
+
+.btn-screen-audit-refresh {
+  align-self: flex-start !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  color: #38bdf8 !important;
+  background: rgba(14, 165, 233, 0.12) !important;
+  border: 1px solid rgba(14, 165, 233, 0.35) !important;
+  border-radius: 4px !important;
+  padding: 4px 10px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-screen-audit-refresh:hover:not(:disabled) {
+  background: rgba(14, 165, 233, 0.22) !important;
 }
 
 .nemotron-card-top {
@@ -11437,20 +11541,23 @@ label.consent-check small {
   font-size: 10px !important;
   letter-spacing: 0.08em !important;
   color: #76b900 !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
 }
 
 .nemotron-context-tag {
   font-family: 'IBM Plex Mono', monospace !important;
   font-size: 10px !important;
-  color: #888888 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  color: #a1a1aa !important;
 }
 
 .nemotron-text-stream p {
   margin: 0 0 6px 0 !important;
   font-size: 13px !important;
-  line-height: 1.55 !important;
-  color: #ededed !important;
+  line-height: 1.6 !important;
+  color: #f3f4f6 !important;
 }
 
 .nemotron-text-stream p:last-child {
@@ -11475,25 +11582,13 @@ label.consent-check small {
   animation: pulse-glow 1s infinite alternate ease-in-out !important;
 }
 
-@keyframes pulse-glow {
-  from {
-    opacity: 0.3;
-    transform: scale(0.8);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
 .nemotron-actions-row {
   display: flex !important;
   align-items: center !important;
   gap: 12px !important;
-  margin-top: 6px !important;
+  margin-top: 4px !important;
   padding-top: 10px !important;
-  border-top: 1px solid #222222 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
 .btn-stage-clarification {
@@ -11501,16 +11596,17 @@ label.consent-check small {
   font-size: 12px !important;
   font-weight: 600 !important;
   color: #17c3b2 !important;
-  background: rgba(23, 195, 178, 0.08) !important;
-  border: 1px solid #17c3b2 !important;
-  border-radius: 4px !important;
-  padding: 6px 12px !important;
+  background: rgba(23, 195, 178, 0.1) !important;
+  border: 1px solid rgba(23, 195, 178, 0.4) !important;
+  border-radius: 6px !important;
+  padding: 7px 14px !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
 }
 
 .btn-stage-clarification:hover {
-  background: rgba(23, 195, 178, 0.18) !important;
+  background: rgba(23, 195, 178, 0.2) !important;
+  box-shadow: 0 0 12px rgba(23, 195, 178, 0.25) !important;
 }
 
 .staged-toast-badge {
@@ -11529,7 +11625,8 @@ label.consent-check small {
   font-family: 'IBM Plex Mono', monospace !important;
   font-size: 10px !important;
   letter-spacing: 0.08em !important;
-  color: #777777 !important;
+  color: #71717a !important;
+  font-weight: 600 !important;
 }
 
 .nemotron-quick-chips {
@@ -11541,19 +11638,21 @@ label.consent-check small {
 .nemotron-chip-btn {
   font-family: 'Inter', sans-serif !important;
   font-size: 12px !important;
-  color: #a0a0a0 !important;
-  background: #161616 !important;
-  border: 1px solid #2b2b2b !important;
-  border-radius: 4px !important;
-  padding: 6px 10px !important;
+  font-weight: 500 !important;
+  color: #d1d5db !important;
+  background: #141b24 !important;
+  border: 1px solid #232d3b !important;
+  border-radius: 6px !important;
+  padding: 7px 12px !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
 }
 
 .nemotron-chip-btn:hover:not(:disabled) {
-  color: #ffffff !important;
+  color: #76b900 !important;
   border-color: #76b900 !important;
-  background: rgba(118, 185, 0, 0.1) !important;
+  background: rgba(118, 185, 0, 0.12) !important;
+  box-shadow: 0 0 10px rgba(118, 185, 0, 0.2) !important;
 }
 
 .nemotron-prompt-form {
@@ -11564,34 +11663,38 @@ label.consent-check small {
 
 .nemotron-prompt-input {
   flex: 1 !important;
-  background: #141414 !important;
-  border: 1px solid #2b2b2b !important;
-  border-radius: 4px !important;
-  padding: 9px 12px !important;
+  background: #111720 !important;
+  border: 1px solid #232d3b !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
   font-size: 13px !important;
   color: #ffffff !important;
   box-sizing: border-box !important;
+  transition: border-color 0.2s ease !important;
 }
 
 .nemotron-prompt-input:focus {
+  outline: none !important;
   border-color: #76b900 !important;
+  box-shadow: 0 0 0 2px rgba(118, 185, 0, 0.2) !important;
 }
 
 .nemotron-run-btn {
   font-family: 'Inter', sans-serif !important;
   font-size: 13px !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
   background: #76b900 !important;
-  color: #111111 !important;
-  border: 1px solid #76b900 !important;
-  border-radius: 4px !important;
-  padding: 9px 14px !important;
+  color: #0d1117 !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 18px !important;
   cursor: pointer !important;
   transition: all 0.15s ease !important;
 }
 
 .nemotron-run-btn:hover:not(:disabled) {
-  background: #87d300 !important;
+  background: #8ae000 !important;
+  box-shadow: 0 0 14px rgba(118, 185, 0, 0.35) !important;
 }
 
 .nemotron-run-btn:disabled {
@@ -11609,21 +11712,100 @@ label.consent-check small {
   font-family: 'IBM Plex Mono', monospace !important;
   font-size: 10px !important;
   letter-spacing: 0.08em !important;
-  color: #777777 !important;
+  color: #71717a !important;
+  font-weight: 600 !important;
 }
 
 .ai-note {
   width: 100% !important;
   min-height: 80px !important;
-  background: #141414 !important;
-  border: 1px solid #242424 !important;
-  border-radius: 4px !important;
-  padding: 10px 12px !important;
-  color: #ffffff !important;
+  background: #111720 !important;
+  border: 1px solid #232d3b !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  color: #e4e4e7 !important;
   font-size: 13px !important;
   font-family: 'Inter', sans-serif !important;
   box-sizing: border-box !important;
   resize: vertical !important;
+  transition: border-color 0.2s ease !important;
+}
+
+.ai-note:focus {
+  outline: none !important;
+  border-color: rgba(118, 185, 0, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(118, 185, 0, 0.15) !important;
+}
+
+.btn-screen-share {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid #334155 !important;
+  color: #f1f5f9 !important;
+  padding: 7px 13px !important;
+  border-radius: 8px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-screen-share:hover {
+  background: rgba(30, 41, 59, 0.8) !important;
+  border-color: #64748b !important;
+}
+
+.btn-screen-share.is-sharing {
+  background: rgba(239, 68, 68, 0.15) !important;
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.screen-share-active-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: rgba(16, 185, 129, 0.15) !important;
+  border: 1px solid rgba(16, 185, 129, 0.4) !important;
+  color: #10b981 !important;
+  padding: 4px 10px !important;
+  border-radius: 20px !important;
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+.sharing-panel {
+  background: radial-gradient(circle at top left, rgba(23, 195, 178, 0.05), transparent 70%), #0d1117 !important;
+  border: 1px solid rgba(23, 195, 178, 0.25) !important;
+  border-radius: 12px !important;
+  padding: 22px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+}
+
+.sharing-panel h2 {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 12px 0 !important;
+}
+
+.agenda-panel {
+  background: #0d1117 !important;
+  border: 1px solid #232d3b !important;
+  border-radius: 12px !important;
+  padding: 22px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+}
+
+.agenda-panel h3 {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 14px 0 !important;
 }
 
 /* 2. Top Navigation Bar Colors */

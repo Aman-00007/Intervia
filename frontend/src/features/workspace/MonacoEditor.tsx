@@ -48,6 +48,27 @@ export function MonacoEditor({
     return () => observer.disconnect();
   }, []);
 
+  // Global capturing listener for candidate sandbox clipboard lockdown
+  useEffect(() => {
+    if (!preventClipboard) return;
+    const blockGlobalClipboard = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.closest(".monaco-editor") || activeEl.closest(".monaco-editor-shell"))) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        triggerClipboardBlocked(e.type);
+      }
+    };
+    window.addEventListener("paste", blockGlobalClipboard, true);
+    window.addEventListener("copy", blockGlobalClipboard, true);
+    window.addEventListener("cut", blockGlobalClipboard, true);
+    return () => {
+      window.removeEventListener("paste", blockGlobalClipboard, true);
+      window.removeEventListener("copy", blockGlobalClipboard, true);
+      window.removeEventListener("cut", blockGlobalClipboard, true);
+    };
+  }, [preventClipboard]);
+
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     editor.focus();
     editor.updateOptions({
@@ -66,17 +87,21 @@ export function MonacoEditor({
       // 1. Intercept Monaco keydown shortcuts
       editor.onKeyDown((e) => {
         const isModifier = e.ctrlKey || e.metaKey;
-        if (isModifier && (e.code === "KeyV" || e.keyCode === 52)) {
+        const key = e.browserEvent?.key?.toLowerCase() || "";
+        const code = e.code || e.browserEvent?.code || "";
+        const rawCode = e.browserEvent?.keyCode || 0;
+
+        if (isModifier && (code === "KeyV" || key === "v" || e.keyCode === 52 || rawCode === 86)) {
           e.preventDefault();
           e.stopPropagation();
           triggerClipboardBlocked("paste");
         }
-        if (isModifier && (e.code === "KeyC" || e.keyCode === 33)) {
+        if (isModifier && (code === "KeyC" || key === "c" || e.keyCode === 33 || rawCode === 67)) {
           e.preventDefault();
           e.stopPropagation();
           triggerClipboardBlocked("copy");
         }
-        if (isModifier && (e.code === "KeyX" || e.keyCode === 54)) {
+        if (isModifier && (code === "KeyX" || key === "x" || e.keyCode === 54 || rawCode === 88)) {
           e.preventDefault();
           e.stopPropagation();
           triggerClipboardBlocked("cut");
@@ -98,28 +123,35 @@ export function MonacoEditor({
         // ignore command override failure
       }
 
-      // 3. Attach DOM-level capturing event listeners to prevent paste into Monaco textarea
+      // 3. Attach DOM-level capturing event listeners on container and internal textarea
       const domNode = editor.getDomNode();
       if (domNode) {
         const handleDomPaste = (e: Event) => {
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           triggerClipboardBlocked("paste");
         };
         const handleDomCopy = (e: Event) => {
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           triggerClipboardBlocked("copy");
         };
         const handleDomCut = (e: Event) => {
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           triggerClipboardBlocked("cut");
         };
 
         domNode.addEventListener("paste", handleDomPaste, true);
         domNode.addEventListener("copy", handleDomCopy, true);
         domNode.addEventListener("cut", handleDomCut, true);
+
+        const internalTextarea = domNode.querySelector("textarea");
+        if (internalTextarea) {
+          internalTextarea.addEventListener("paste", handleDomPaste, true);
+          internalTextarea.addEventListener("copy", handleDomCopy, true);
+          internalTextarea.addEventListener("cut", handleDomCut, true);
+        }
       }
     }
   };

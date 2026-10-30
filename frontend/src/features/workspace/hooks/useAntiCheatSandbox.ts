@@ -34,15 +34,17 @@ export function useAntiCheatSandbox({
   const blurTimestampRef = useRef<number | null>(null);
   const lastViolationTimeRef = useRef<number>(0);
   const suppressUntilRef = useRef<number>(0);
+  const wasInFullscreenRef = useRef<boolean>(false);
 
   // Request Fullscreen cleanly with fallback
   const enterFullscreen = useCallback(async () => {
     if (typeof document === "undefined") return;
     try {
       if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
-        suppressUntilRef.current = Date.now() + 2000;
+        suppressUntilRef.current = Date.now() + 3000;
         await document.documentElement.requestFullscreen();
         setIsFullscreen(true);
+        wasInFullscreenRef.current = true;
       }
     } catch (err) {
       console.warn("Fullscreen request not permitted or cancelled by user:", err);
@@ -52,8 +54,9 @@ export function useAntiCheatSandbox({
   const exitFullscreen = useCallback(async () => {
     if (typeof document === "undefined") return;
     try {
+      suppressUntilRef.current = Date.now() + 15000;
+      wasInFullscreenRef.current = false;
       if (document.fullscreenElement && document.exitFullscreen) {
-        suppressUntilRef.current = Date.now() + 2000;
         await document.exitFullscreen();
         setIsFullscreen(false);
       }
@@ -76,9 +79,17 @@ export function useAntiCheatSandbox({
 
     // Helper to log away event & record TAB_SWITCH violation
     const triggerTabAway = () => {
+      // Stop tracking if already reached max limit of 3 violations
+      try {
+        const stored = sessionStorage.getItem("intervia_tab_switches");
+        if (stored && parseInt(stored, 10) >= maxAllowedSwitches) {
+          return;
+        }
+      } catch {}
+
       const now = Date.now();
       if (now < suppressUntilRef.current) return;
-      if (now - lastViolationTimeRef.current < 2000) return; // Prevent double trigger
+      if (now - lastViolationTimeRef.current < 2500) return; // Prevent double trigger
       lastViolationTimeRef.current = now;
 
       const awayMs = blurTimestampRef.current ? now - blurTimestampRef.current : 500;
@@ -86,6 +97,7 @@ export function useAntiCheatSandbox({
       setLastAwayDuration(durationSec);
 
       setTabSwitchCount((prev) => {
+        if (prev >= maxAllowedSwitches) return maxAllowedSwitches;
         const nextCount = Math.min(maxAllowedSwitches, prev + 1);
         try {
           sessionStorage.setItem("intervia_tab_switches", nextCount.toString());
@@ -93,12 +105,21 @@ export function useAntiCheatSandbox({
           // ignore
         }
 
+        const isTerminal = nextCount >= maxAllowedSwitches;
+
         recordViolation("TAB_SWITCH", {
           durationSeconds: parseFloat(durationSec),
           violationAttempt: nextCount,
           maxAllowed: maxAllowedSwitches,
-          terminated: nextCount >= maxAllowedSwitches,
+          terminated: isTerminal,
         });
+
+        if (isTerminal) {
+          // Immediately exit fullscreen so user can see termination modal and exit cleanly
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          }
+        }
 
         return nextCount;
       });
@@ -118,7 +139,7 @@ export function useAntiCheatSandbox({
       }
     };
 
-    // 2. Window Blur & Focus (e.g. alt-tabbing or clicking outside to Snipping Tool / desktop app)
+    // 2. Window Blur & Focus
     const handleWindowBlur = () => {
       if (!blurTimestampRef.current) {
         blurTimestampRef.current = Date.now();
@@ -131,15 +152,21 @@ export function useAntiCheatSandbox({
       }
     };
 
-    // 3. Fullscreen Exit Detection (only alert if user was in fullscreen)
+    // 3. Fullscreen Exit Detection (Only if user had entered fullscreen)
     const handleFullscreenChange = () => {
       const isFull = Boolean(document.fullscreenElement);
       setIsFullscreen(isFull);
+      if (isFull) {
+        wasInFullscreenRef.current = true;
+      }
+
       const now = Date.now();
-      if (!isFull && now >= suppressUntilRef.current) {
-        if (now - lastViolationTimeRef.current >= 2000) {
+      if (!isFull && wasInFullscreenRef.current && now >= suppressUntilRef.current) {
+        wasInFullscreenRef.current = false;
+        if (now - lastViolationTimeRef.current >= 2500) {
           lastViolationTimeRef.current = now;
           setTabSwitchCount((prev) => {
+            if (prev >= maxAllowedSwitches) return maxAllowedSwitches;
             const nextCount = Math.min(maxAllowedSwitches, prev + 1);
             try {
               sessionStorage.setItem("intervia_tab_switches", nextCount.toString());
@@ -225,7 +252,7 @@ export function useAntiCheatSandbox({
   }, [enabled, maxAllowedSwitches, recordViolation]);
 
   const dismissWarning = useCallback(() => {
-    suppressUntilRef.current = Date.now() + 2500;
+    suppressUntilRef.current = Date.now() + 8000;
     setShowWarningModal(false);
   }, []);
 

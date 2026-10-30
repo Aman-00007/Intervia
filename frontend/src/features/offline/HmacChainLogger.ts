@@ -111,7 +111,7 @@ export class HmacChainLogger {
     if (typeof window !== "undefined") {
       try {
         if ("BroadcastChannel" in window) {
-          this.broadcastChannel = new BroadcastChannel("intervia_hmac_bus");
+          this.broadcastChannel = new BroadcastChannel("intervia_audit_channel");
           this.broadcastChannel.onmessage = (event) => {
             if (event.data && event.data.type === "SECURITY_ENTRY" && event.data.entry) {
               const entry = event.data.entry as HmacLogEntry;

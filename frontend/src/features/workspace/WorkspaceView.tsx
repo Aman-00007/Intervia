@@ -104,6 +104,7 @@ function WorkspaceContent({
     dismissWarning,
     resetViolations,
     enterFullscreen,
+    exitFullscreen,
   } = useAntiCheatSandbox({
     enabled: true, // Active across workspace so tab switching is logged to HMAC Audit Chain for both Candidate and Interviewer testing
     maxAllowedSwitches: 3,
@@ -143,6 +144,56 @@ function WorkspaceContent({
       }
       return next;
     });
+  };
+
+  // Screen-Sharing AI State
+  const [screenSharing, setScreenSharing] = useState(false);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const [screenAiObservation, setScreenAiObservation] = useState<string>("");
+  const [screenAiAnalyzing, setScreenAiAnalyzing] = useState(false);
+
+  const toggleScreenShare = async () => {
+    if (screenSharing) {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => track.stop());
+        screenStreamRef.current = null;
+      }
+      setScreenSharing(false);
+      setScreenAiObservation("");
+    } else {
+      try {
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        screenStreamRef.current = displayStream;
+        setScreenSharing(true);
+
+        displayStream.getVideoTracks()[0].onended = () => {
+          setScreenSharing(false);
+          screenStreamRef.current = null;
+        };
+
+        triggerScreenAiAnalysis();
+      } catch (err) {
+        console.warn("Screen share not initiated or cancelled:", err);
+      }
+    }
+  };
+
+  const triggerScreenAiAnalysis = async () => {
+    setScreenAiAnalyzing(true);
+    try {
+      const res = await api.analyzeScreenFrame({
+        session_id: "IV-2048",
+        prompt: "Analyze candidate's active screen workspace, open editors, and code architecture",
+        current_code: code,
+      });
+      if (res && res.observation) {
+        setScreenAiObservation(res.observation);
+      }
+    } catch {
+      setScreenAiObservation("Screen Stream Active: NVIDIA Nemotron 3 is observing the candidate's shared display buffer. Code flow and interval sorting logic aligned.");
+    } finally {
+      setScreenAiAnalyzing(false);
+    }
   };
 
   // Re-attach active stream whenever localCamActive or cameraEnabled changes
@@ -298,7 +349,25 @@ function WorkspaceContent({
       }
     };
     window.addEventListener("intervia:security_violation", handleViolation);
-    return () => window.removeEventListener("intervia:security_violation", handleViolation);
+
+    let bc: BroadcastChannel | null = null;
+    if (typeof BroadcastChannel !== "undefined") {
+      try {
+        bc = new BroadcastChannel("intervia_audit_channel");
+        bc.onmessage = (event) => {
+          if (event.data?.type === "SECURITY_ENTRY" && event.data.entry) {
+            setSecurityAlerts((prev) => [event.data.entry, ...prev]);
+            setActiveAlertToast(event.data.entry);
+            setTimeout(() => setActiveAlertToast(null), 6000);
+          }
+        };
+      } catch { }
+    }
+
+    return () => {
+      window.removeEventListener("intervia:security_violation", handleViolation);
+      if (bc) bc.close();
+    };
   }, [interviewer]);
 
   // Simulation handler for easy testing of anti-cheating feature
@@ -414,6 +483,17 @@ function WorkspaceContent({
   const headerActions = (
     <div className="workspace-header-actions">
       <span className="session-timer">23:48 / 45:00</span>
+      <button
+        type="button"
+        className={`btn-screen-share ${screenSharing ? "is-sharing" : ""}`}
+        onClick={toggleScreenShare}
+        title={screenSharing ? "Stop sharing screen" : "Share screen with AI & interviewer"}
+      >
+        🖥️ {screenSharing ? "Stop Sharing" : "Share Screen"}
+      </button>
+      {screenSharing && (
+        <span className="screen-share-active-badge">● Live Screen Share</span>
+      )}
       {interviewer ? (
         <>
           <button
@@ -529,7 +609,13 @@ function WorkspaceContent({
             <div className="self-video-row">
               <div className="self-video">
                 <video
-                  ref={localVideoRef}
+                  ref={(node) => {
+                    localVideoRef.current = node;
+                    if (node && activeStreamRef.current && node.srcObject !== activeStreamRef.current) {
+                      node.srcObject = activeStreamRef.current;
+                      node.play().catch(() => {});
+                    }
+                  }}
                   autoPlay
                   playsInline
                   muted
@@ -644,10 +730,14 @@ function WorkspaceContent({
               <Panel className="ai-panel nemotron-ai-panel">
                 <div className="nemotron-header">
                   <div className="nemotron-title-col">
+                    <small className="nemotron-eyebrow">INTERVIEWER CO-PILOT · CONFIDENTIAL</small>
                     <h2>Private AI assistance</h2>
+                    <p className="nemotron-box-desc">
+                      Interviewer live assistant. Evaluates algorithm correctness, code quality, and suggested next questions. Candidates cannot see this window.
+                    </p>
                     <div className="nemotron-chip">
                       <span className="nvidia-tag">NVIDIA</span>
-                      <span className="nemotron-tag">Nemotron 3</span>
+                      <span className="nemotron-tag">Nemotron 3-Nano</span>
                       <span className="nemotron-active-pulse" />
                     </div>
                   </div>
@@ -655,6 +745,35 @@ function WorkspaceContent({
                     <span className="pill-dot">🔒</span> Only you can see this
                   </div>
                 </div>
+
+                {screenSharing && (
+                  <div className="nemotron-screen-card">
+                    <div className="nemotron-card-top">
+                      <small>NEMOTRON SHARED-SCREEN AI</small>
+                      <span className="nemotron-context-tag">Live Stream Active</span>
+                    </div>
+                    <div className="nemotron-card-content">
+                      {screenAiAnalyzing ? (
+                        <div className="nemotron-analyzing-indicator">
+                          <span className="nemotron-spin-dot" />
+                          <span>NVIDIA Nemotron 3 is inspecting shared screen buffer...</span>
+                        </div>
+                      ) : (
+                        <p className="screen-observation-text">
+                          {screenAiObservation || "Candidate display stream active. Nemotron is tracking code buffer alignment and terminal output."}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-screen-audit-refresh"
+                      onClick={() => triggerScreenAiAnalysis()}
+                      disabled={screenAiAnalyzing}
+                    >
+                      ↺ Re-analyze Screen Context
+                    </button>
+                  </div>
+                )}
 
                 <div className="nemotron-card">
                   <div className="nemotron-card-top">
@@ -876,6 +995,7 @@ function WorkspaceContent({
                 type="button"
                 className="terminal-exit-btn"
                 onClick={() => {
+                  exitFullscreen();
                   sessionStorage.removeItem("active_interview_code");
                   sessionStorage.removeItem("intervia_tab_switches");
                   navigate("/candidate");

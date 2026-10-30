@@ -166,6 +166,9 @@ export function ConsentScreen() {
         if (AudioContextClass) {
           const audioCtx = new AudioContextClass();
           audioCtxRef.current = audioCtx;
+          if (audioCtx.state === "suspended") {
+            audioCtx.resume().catch(() => { });
+          }
           const source = audioCtx.createMediaStreamSource(stream);
           const analyser = audioCtx.createAnalyser();
           analyser.fftSize = 64;
@@ -177,6 +180,9 @@ export function ConsentScreen() {
           const dataArray = new Uint8Array(bufferLength);
 
           const updateVisualizer = () => {
+            if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+              audioCtxRef.current.resume().catch(() => { });
+            }
             analyser.getByteFrequencyData(dataArray);
             let sum = 0;
             for (let i = 0; i < bufferLength; i++) {
@@ -207,9 +213,10 @@ export function ConsentScreen() {
 
             const now = performance.now();
             // Detect active speech vocalization
-            if ((speechBandAvg > 16 || norm > 12) && !speechMismatch) {
-              // Rate limit advances to natural human speech syllable/word cadence (~210ms)
-              if (now - lastVoiceBurstRef.current > 210) {
+            if (speechBandAvg > 6 || norm > 6) {
+              setSpeechMismatch(false);
+              // Rate limit advances to natural human speech syllable/word cadence (~220ms)
+              if (now - lastVoiceBurstRef.current > 220) {
                 lastVoiceBurstRef.current = now;
                 setMatchedIndices((prev) => {
                   if (prev.length < TARGET_WORDS.length) {
@@ -361,6 +368,23 @@ export function ConsentScreen() {
     };
   }, [speechDetected]);
 
+  // Audio Context auto-resume unlock on user gesture
+  useEffect(() => {
+    const resumeAudio = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        audioCtxRef.current.resume().catch(() => { });
+      }
+    };
+    window.addEventListener("click", resumeAudio);
+    window.addEventListener("touchstart", resumeAudio);
+    window.addEventListener("keydown", resumeAudio);
+    return () => {
+      window.removeEventListener("click", resumeAudio);
+      window.removeEventListener("touchstart", resumeAudio);
+      window.removeEventListener("keydown", resumeAudio);
+    };
+  }, []);
+
   // Real-time Facial Proctoring (1 Face required, alert on multiple faces, alert on face missing/off-center)
   useEffect(() => {
     if (!cameraActive || typeof window === "undefined") return;
@@ -376,29 +400,40 @@ export function ConsentScreen() {
       if ("FaceDetector" in window) {
         try {
           const detector = new (window as any).FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
-          const faces = await detector.detect(video);
-          if (faces && faces.length !== undefined) {
-            if (faces.length === 0) {
+          const rawFaces = await detector.detect(video);
+          if (rawFaces && Array.isArray(rawFaces)) {
+            const videoWidth = video.videoWidth || 640;
+            const videoHeight = video.videoHeight || 480;
+            // Filter out noise / false positives: must have true face area and reasonable aspect ratio
+            const validFaces = rawFaces.filter((f: any) => {
+              const b = f.boundingBox;
+              if (!b || b.width < 40 || b.height < 40) return false;
+              const ratio = b.height / Math.max(1, b.width);
+              if (ratio < 0.6 || ratio > 2.0) return false;
+              // Must not be an extreme edge artifact
+              if (b.x < 5 || (b.x + b.width) > videoWidth - 5) return false;
+              return true;
+            });
+
+            if (validFaces.length === 0) {
               setFaceCount(0);
               return;
             }
-            // Check if primary face is centered in the camera frame
-            const mainFace = faces[0].boundingBox;
-            const videoWidth = video.videoWidth || 640;
+            // Check if primary candidate face is centered
+            const mainFace = validFaces[0].boundingBox;
             const faceCenterX = mainFace.x + mainFace.width / 2;
             const relX = faceCenterX / videoWidth;
-            // Face cut off on left or right border (< 0.20 or > 0.80)
-            if (relX < 0.20 || relX > 0.80) {
+            if (relX < 0.15 || relX > 0.85) {
               setFaceCount(0);
               return;
             }
-            setFaceCount(faces.length);
+            setFaceCount(validFaces.length);
             return;
           }
         } catch { }
       }
 
-      // 2. High-performance Computer Vision YCbCr Spatial Density Cluster Analysis
+      // 2. High-performance Computer Vision 2D YCbCr Cluster Analysis
       try {
         const canvas = faceCanvasRef.current;
         if (!canvas) return;
@@ -417,9 +452,9 @@ export function ConsentScreen() {
         let totalSkin = 0;
         let centerSkin = 0;
 
-        // Candidate center framing region (middle 56% horizontally, middle 75% vertically)
-        const minCenterX = Math.floor(width * 0.22); // 35
-        const maxCenterX = Math.floor(width * 0.78); // 125
+        // Candidate center framing region (middle 60% horizontally, middle 75% vertically)
+        const minCenterX = Math.floor(width * 0.20); // 32
+        const maxCenterX = Math.floor(width * 0.80); // 128
         const minCenterY = Math.floor(height * 0.12); // 14
         const maxCenterY = Math.floor(height * 0.88); // 105
 
@@ -443,6 +478,17 @@ export function ConsentScreen() {
           }
         }
 
+        // Candidate face missing / looking away / camera blocked
+        if (totalSkin < 180 || centerSkin < 60) {
+          setFaceCount(0);
+          return;
+        }
+
+        // Secondary Face Detection: Look for a distinct, genuine 2D human head
+        // Discard tall vertical architectural objects like curtains or doors
+        let secondPersonDetected = false;
+
+        // Check columns to left and right of candidate
         const colHist = new Int32Array(width);
         for (let x = 0; x < width; x++) {
           for (let y = minCenterY; y < maxCenterY; y++) {
@@ -450,62 +496,85 @@ export function ConsentScreen() {
           }
         }
 
-        // 7-point Gaussian-weighted moving average filter to eliminate ripples from glasses/eyebrows/hair
         const smoothed = new Float32Array(width);
         for (let x = 3; x < width - 3; x++) {
           smoothed[x] =
-            (colHist[x - 3] * 1 +
+            (colHist[x - 3] +
               colHist[x - 2] * 2 +
               colHist[x - 1] * 3 +
               colHist[x] * 4 +
               colHist[x + 1] * 3 +
               colHist[x + 2] * 2 +
-              colHist[x + 3] * 1) /
+              colHist[x + 3]) /
             16;
         }
 
-        // Find candidate peaks across smoothed columns (minimum height > 22)
-        const rawPeaks: number[] = [];
-        for (let x = 16; x < width - 16; x++) {
-          if (smoothed[x] > 22) {
-            if (
-              smoothed[x] >= smoothed[x - 1] &&
-              smoothed[x] >= smoothed[x + 1] &&
-              smoothed[x] > smoothed[x - 2] &&
-              smoothed[x] > smoothed[x + 2]
-            ) {
-              if (rawPeaks.length === 0 || x - rawPeaks[rawPeaks.length - 1] > 20) {
-                rawPeaks.push(x);
+        // Candidate peak is the maximum near center
+        let primaryPeakX = width / 2;
+        let maxPeakVal = 0;
+        for (let x = 30; x < width - 30; x++) {
+          if (smoothed[x] > maxPeakVal) {
+            maxPeakVal = smoothed[x];
+            primaryPeakX = x;
+          }
+        }
+
+        // Check for secondary peak separated by >= 45px
+        for (let x = 15; x < width - 15; x++) {
+          if (Math.abs(x - primaryPeakX) >= 45 && smoothed[x] >= 35) {
+            // Is this a true local peak?
+            if (smoothed[x] >= smoothed[x - 1] && smoothed[x] >= smoothed[x + 1]) {
+              // Analyze 2D bounding box around this peak
+              let yMin = height;
+              let yMax = 0;
+              let clusterPixels = 0;
+              const xStart = Math.max(0, x - 12);
+              const xEnd = Math.min(width - 1, x + 12);
+
+              for (let sy = 5; sy < height - 5; sy++) {
+                for (let sx = xStart; sx <= xEnd; sx++) {
+                  if (skinMask[sy * width + sx]) {
+                    clusterPixels++;
+                    if (sy < yMin) yMin = sy;
+                    if (sy > yMax) yMax = sy;
+                  }
+                }
+              }
+
+              const clusterHeight = yMax - yMin;
+              const clusterWidth = xEnd - xStart + 1;
+              const aspect = clusterHeight / Math.max(1, clusterWidth);
+
+              // REJECT curtain / drape / background artifacts:
+              // - Curtains span from very top to bottom (clusterHeight > 80 or yMin < 10 && yMax > 105)
+              // - Curtains have aspect ratio > 2.5 (tall thin vertical stripes)
+              // - Curtains don't have human head proportions
+              const isCurtainOrWall = clusterHeight > 80 || (yMin < 10 && yMax > 105) || aspect > 2.5;
+
+              // ACCEPT as second person ONLY if it has true human head dimensions:
+              // - Cluster height between 22 and 60 pixels
+              // - Cluster width between 18 and 45 pixels
+              // - Aspect ratio 0.8 to 1.8
+              // - Substantial skin mass >= 350 pixels
+              // - Located in human head region (yMin >= 10, yMax <= 95)
+              if (!isCurtainOrWall && clusterPixels >= 350 && clusterHeight >= 22 && clusterHeight <= 65 && aspect >= 0.75 && aspect <= 1.85) {
+                // Verify clear separation valley between primary and secondary
+                const vStart = Math.min(primaryPeakX, x) + 8;
+                const vEnd = Math.max(primaryPeakX, x) - 8;
+                let valleyMin = 999;
+                for (let vx = vStart; vx <= vEnd; vx++) {
+                  if (smoothed[vx] < valleyMin) valleyMin = smoothed[vx];
+                }
+                if (valleyMin < 15) {
+                  secondPersonDetected = true;
+                  break;
+                }
               }
             }
           }
         }
 
-        // Validate if two peaks are truly two distinct separate human heads (not cheeks/glasses of 1 person)
-        // Two people in a 160-wide frame MUST be separated by at least 48px with a deep empty background valley
-        let distinctPeopleCount = rawPeaks.length > 0 ? 1 : 0;
-        if (rawPeaks.length >= 2) {
-          for (let i = 0; i < rawPeaks.length - 1; i++) {
-            const p1 = rawPeaks[i];
-            const p2 = rawPeaks[i + 1];
-            if (p2 - p1 >= 48) {
-              let minValley = 999;
-              for (let vx = p1 + 8; vx <= p2 - 8; vx++) {
-                if (smoothed[vx] < minValley) minValley = smoothed[vx];
-              }
-              const lowerPeak = Math.min(smoothed[p1], smoothed[p2]);
-              if (minValley < 10 || minValley < lowerPeak * 0.35) {
-                distinctPeopleCount = 2;
-                break;
-              }
-            }
-          }
-        }
-
-        // Face is absent, moved off to the side, or tilted out of frame
-        if (totalSkin < 250 || centerSkin < 100) {
-          setFaceCount(0);
-        } else if (distinctPeopleCount >= 2) {
+        if (secondPersonDetected) {
           setFaceCount(2);
         } else {
           setFaceCount(1);
@@ -556,9 +625,20 @@ export function ConsentScreen() {
     try {
       if (selectedCam) sessionStorage.setItem("intervia_selected_cam", selectedCam);
       if (selectedMic) sessionStorage.setItem("intervia_selected_mic", selectedMic);
+      let candidateEmail = "candidate@example.com";
+      let candidateName = "Candidate";
+      try {
+        const stored = localStorage.getItem("intervia_user");
+        if (stored) {
+          const u = JSON.parse(stored);
+          if (u.email) candidateEmail = u.email;
+          if (u.full_name) candidateName = u.full_name;
+        }
+      } catch { }
+
       await api.submitConsent({
-        real_full_name: "Candidate",
-        real_email: "candidate@example.com",
+        real_full_name: candidateName,
+        real_email: candidateEmail,
         is_above_18_verified: true,
         purposes_accepted: {
           camera_audio: true,
@@ -1043,7 +1123,13 @@ export function ConsentScreen() {
                               {/* Camera Preview Mirror with Face Proctor Badge */}
                               <div className="camera-preview-wrapper">
                                 <video
-                                  ref={videoRef}
+                                  ref={(node) => {
+                                    videoRef.current = node;
+                                    if (node && streamRef.current && node.srcObject !== streamRef.current) {
+                                      node.srcObject = streamRef.current;
+                                      node.play().catch(() => { });
+                                    }
+                                  }}
                                   autoPlay
                                   playsInline
                                   muted

@@ -1,15 +1,41 @@
+# src/intervia/domains/stage_a_onboarding/repository.py
 import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
-from intervia.domains.stage_a_onboarding.models import CandidateIdentity, DPDPConsentRecord, PIITokenVault
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import select
+
+from intervia.domains.stage_a_onboarding.models import (
+    CandidateIdentity, 
+    DPDPConsentRecord, 
+    PIITokenVault,
+    SessionSeed
+)
 from intervia.domains.stage_a_onboarding.schemas import OnboardingRequest
 
 class OnboardingRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_candidate_identity(self, data: OnboardingRequest) -> CandidateIdentity:
-        """Saves the real identity into Physical Table 1."""
+    async def create_candidate_identity(self, user_id: uuid.UUID, data: OnboardingRequest) -> CandidateIdentity:
+        """Saves or updates the real identity into Physical Table 1."""
+        existing = await self.session.get(CandidateIdentity, user_id)
+        if not existing:
+            # Check by email as well to avoid unique violation
+            stmt = select(CandidateIdentity).where(CandidateIdentity.real_email == data.real_email)
+            res = await self.session.execute(stmt)
+            existing = res.scalar_one_or_none()
+
+        if existing:
+            existing.real_full_name = data.real_full_name
+            existing.real_email = data.real_email
+            existing.real_phone = data.real_phone
+            existing.college_id = data.college_id
+            existing.github_username = data.github_username
+            await self.session.flush()
+            return existing
+
         candidate = CandidateIdentity(
+            user_id=user_id,
             real_full_name=data.real_full_name,
             real_email=data.real_email,
             real_phone=data.real_phone,
@@ -17,7 +43,7 @@ class OnboardingRepository:
             github_username=data.github_username
         )
         self.session.add(candidate)
-        await self.session.flush() # Flushes to get the auto-generated user_id
+        await self.session.flush() 
         return candidate
 
     async def record_dpdp_consent(self, user_id: uuid.UUID, session_id: uuid.UUID, data: OnboardingRequest) -> DPDPConsentRecord:
@@ -40,3 +66,12 @@ class OnboardingRepository:
         )
         self.session.add(vault_entry)
         return vault_entry
+
+    async def save_session_seed(self, session_id: uuid.UUID, encrypted_seed: bytes) -> SessionSeed:
+        """Stores the encrypted HMAC salt seed for Stage B verification."""
+        seed_record = SessionSeed(
+            session_id=session_id,
+            encrypted_seed=encrypted_seed
+        )
+        self.session.add(seed_record)
+        return seed_record

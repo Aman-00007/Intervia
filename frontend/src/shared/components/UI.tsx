@@ -57,18 +57,24 @@ export function Button({
   secondary = false,
   className = "",
   type = "button",
+  disabled = false,
+  title,
 }: {
   children: ReactNode;
   onClick?: () => void;
   secondary?: boolean;
   className?: string;
   type?: "button" | "submit" | "reset";
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type={type}
       className={`btn ${secondary ? "btn-secondary secondary" : "btn-primary primary"} ${className}`.trim()}
       onClick={onClick}
+      disabled={disabled}
+      title={title}
     >
       {children}
     </button>

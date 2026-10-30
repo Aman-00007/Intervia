@@ -4,7 +4,7 @@ from intervia.infrastructure.privacy.presidio_engine import pii_shield
 
 class ResumeParserService:
     @staticmethod
-    def extract_and_scrub_pdf(pdf_bytes: bytes) -> str:
+    def extract_and_scrub_pdf(pdf_bytes: bytes) -> tuple[str, dict]:
         """Extracts text from a PDF memory buffer and scrubs PII."""
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         raw_text = ""
@@ -13,9 +13,10 @@ class ResumeParserService:
         
         doc.close()
         
-        # Pass the raw text through the Presidio regex engine
-        scrubbed_text = pii_shield.scrub_text(raw_text)
-        return scrubbed_text
+        # Use the new method that returns both the text and the mapping
+        scrubbed_text, pii_mapping = pii_shield.scrub_text_and_return_map(raw_text)
+            
+        return scrubbed_text, pii_mapping 
 
     @staticmethod
     async def fetch_github_commits(github_username: str | None) -> str:
@@ -34,7 +35,6 @@ class ResumeParserService:
                 events = response.json()
                 commit_messages = []
                 
-                # Filter for PushEvents to extract commit messages
                 for event in events:
                     if event.get("type") == "PushEvent":
                         commits = event.get("payload", {}).get("commits", [])

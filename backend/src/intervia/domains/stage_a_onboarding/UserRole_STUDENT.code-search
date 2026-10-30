@@ -1,0 +1,18 @@
+# Query: UserRole.STUDENT
+# ContextLines: 1
+
+3 results - 2 files
+
+backend/src/intervia/core/security/jwt_rbac.py:
+  22              "user_id": "dev-test-user-id",
+  23:             "role": UserRole.CANDIDATE
+  24          }
+
+backend/src/intervia/domains/stage_a_onboarding/router.py:
+  18      db_session: AsyncSession = Depends(get_vault_db),
+  19:     current_user: dict = Depends(RequireRole([UserRole.CANDIDATE]))
+  20  ):
+
+  44      github_username: str | None = Form(None),
+  45:     current_user: dict = Depends(RequireRole([UserRole.CANDIDATE]))
+  46  ):

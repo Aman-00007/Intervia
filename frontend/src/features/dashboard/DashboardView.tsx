@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "../../api";
 import { Screen } from "../../core/models/screens";
 import { navigate } from "../../core/router";
 import { getCandidateAIVisibility, setCandidateAIVisibility } from "../../core/interviewSettings";
@@ -14,6 +15,17 @@ export function DashboardView({ screen }: { screen: Extract<Screen, "interviewer
 
 function InterviewerDashboard() {
   const [copyLinkToast, setCopyLinkToast] = useState("");
+  const [liveInvitations, setLiveInvitations] = useState<any[]>([]);
+
+  useEffect(() => {
+    api.invitations.getMyInvitations()
+      .then((invs) => {
+        if (Array.isArray(invs) && invs.length > 0) {
+          setLiveInvitations(invs);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleCopyInvite = (code: string) => {
     const inviteUrl = `${window.location.origin}/candidate/login?invite=${code}`;
@@ -131,6 +143,9 @@ function InterviewerDashboard() {
 }
 function CreateInterview() {
   const [aiVisible, setAiVisible] = useState(getCandidateAIVisibility);
+  const [roleTitle, setRoleTitle] = useState("Backend engineering");
+  const [candidateEmail, setCandidateEmail] = useState("candidate@example.com");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activities, setActivities] = useState([
     { id: 1, name: "Introductions", time: "5 min" },
     { id: 2, name: "Technical discussion", time: "10 min" },
@@ -144,6 +159,28 @@ function CreateInterview() {
     const nextVisible = !aiVisible;
     setAiVisible(nextVisible);
     setCandidateAIVisibility(nextVisible);
+  };
+
+  const handleSaveAndSend = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await api.invitations.create({
+        role_title: roleTitle || "Backend engineering",
+        candidate_email: candidateEmail || "candidate@example.com",
+        scheduled_at: new Date().toISOString(),
+      });
+      const code = res?.code || "IV-2048";
+      const inviteUrl = `${window.location.origin}/candidate/login?invite=${code}`;
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        await navigator.clipboard.writeText(inviteUrl).catch(() => {});
+      }
+      alert(`Interview successfully created!\nInvitation Code: ${code}\nLink copied to clipboard:\n${inviteUrl}`);
+      navigate("/interviewer");
+    } catch (err: any) {
+      alert(`Could not create invitation: ${err?.message || err}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleUpdateActivityTime = (id: number, newTime: string) => {
@@ -196,7 +233,12 @@ function CreateInterview() {
         <div className="create-main-column">
           <Panel className="create-details">
             <h2>Interview details</h2>
-            <Field label="INTERVIEW TITLE / ROLE" placeholder="Backend engineering" />
+            <Field
+              label="INTERVIEW TITLE / ROLE"
+              placeholder="Backend engineering"
+              value={roleTitle}
+              onChange={(e: any) => setRoleTitle(e.target.value)}
+            />
             <div className="manage-three-col-row">
               <Field label="DATE" placeholder="28 Oct 2026" />
               <Field label="START TIME" placeholder="10:00" />
@@ -209,6 +251,8 @@ function CreateInterview() {
             <Field
               label="CANDIDATE INVITATION · PROTECTED IDENTITY"
               placeholder="Enter candidate email or invitation identifier"
+              value={candidateEmail}
+              onChange={(e: any) => setCandidateEmail(e.target.value)}
             />
             <p className="form-note">
               Invitation contact is an identity-only field stored separately in encrypted identity_vault. It is not sent to AI or included in interview_ops telemetry.
@@ -368,9 +412,10 @@ function CreateInterview() {
           <span className="save-subnote">45 minutes · 28 Oct 2026 · 10:00–10:45 UTC</span>
         </div>
         <div className="bottom-bar-right form-actions">
-          <Button secondary>Save draft →</Button>
-          <Button secondary>Review invitation →</Button>
-          <Button onClick={() => navigate("/interviewer")}>Save & send invitation →</Button>
+          <Button secondary onClick={() => navigate("/interviewer")}>Cancel</Button>
+          <Button disabled={isSubmitting} onClick={handleSaveAndSend}>
+            {isSubmitting ? "Creating & Sending..." : "Save & send invitation →"}
+          </Button>
         </div>
       </div>
     </Page>

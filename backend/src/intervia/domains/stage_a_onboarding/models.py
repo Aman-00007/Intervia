@@ -4,6 +4,12 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, JSON, LargeBinary, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from intervia.core.database import VaultBase
+from intervia.core.database import OpsBase
+from sqlalchemy import String, DateTime
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
+from datetime import datetime, timezone
+
 
 
 class CandidateIdentity(VaultBase):
@@ -54,3 +60,11 @@ class PIITokenVault(VaultBase):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+class SessionSeed(OpsBase):
+    """Stores the cryptographic seed for the offline HMAC chain."""
+    __tablename__ = "session_seeds"
+
+    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    server_seed: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

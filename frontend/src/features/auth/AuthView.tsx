@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Screen } from "../../core/models/screens";
 import { navigate } from "../../core/router";
 import { Field, Button } from "../../shared/components/UI";
+import { api } from "../../api";
 
 export function AuthView({ screen }: { screen: Screen }) {
   const register = screen.includes("registration");
@@ -9,6 +10,9 @@ export function AuthView({ screen }: { screen: Screen }) {
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [organization, setOrganization] = useState("");
+  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(false);
@@ -36,22 +40,76 @@ export function AuthView({ screen }: { screen: Screen }) {
     return "";
   });
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    setError("");
+
+    if (!email || !password) {
+      setError("Please provide an email and password.");
+      return;
+    }
+
     if (register && !termsAccepted) {
       setError("Please accept the Terms of Service and Privacy Policy.");
       return;
     }
-    // In mock frontend, candidate credentials route into Stage A onboarding directly
-    if (!admin) {
-      if (attachedInvite) {
-        sessionStorage.setItem("active_interview_code", attachedInvite);
+
+    setLoading(true);
+
+    try {
+      if (register) {
+        if (admin) {
+          await api.auth.registerRecruiter({
+            email,
+            password,
+            full_name: fullName || "Interviewer",
+            company_name: organization || "Engineering Team",
+            organization_name: organization || "Engineering Team",
+            terms_accepted: true,
+          });
+          const loginRes = await api.auth.login({ email, password });
+          localStorage.setItem("intervia_access_token", loginRes.access_token);
+          localStorage.setItem("intervia_user", JSON.stringify(loginRes.user));
+          navigate("/interviewer");
+        } else {
+          await api.auth.registerCandidate({
+            email,
+            password,
+            full_name: fullName || "Candidate",
+            terms_accepted: true,
+          });
+          const loginRes = await api.auth.login({ email, password });
+          localStorage.setItem("intervia_access_token", loginRes.access_token);
+          localStorage.setItem("intervia_user", JSON.stringify(loginRes.user));
+          if (attachedInvite) {
+            sessionStorage.setItem("active_interview_code", attachedInvite);
+            navigate("/candidate/consent");
+          } else {
+            navigate("/candidate");
+          }
+        }
+      } else {
+        const loginRes = await api.auth.login({ email, password });
+        localStorage.setItem("intervia_access_token", loginRes.access_token);
+        localStorage.setItem("intervia_user", JSON.stringify(loginRes.user));
+
+        if (loginRes.user.role === "INTERVIEWER" || admin) {
+          navigate("/interviewer");
+        } else {
+          if (attachedInvite) {
+            sessionStorage.setItem("active_interview_code", attachedInvite);
+            navigate("/candidate/consent");
+          } else {
+            navigate("/candidate");
+          }
+        }
       }
-      navigate("/candidate/consent");
-      return;
+    } catch (err: any) {
+      const msg = err?.message || "Authentication failed. Please verify credentials.";
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    // Admin login routes to interviewer dashboard
-    navigate("/interviewer");
   };
 
   const storyTitle = admin ? (
@@ -150,8 +208,20 @@ export function AuthView({ screen }: { screen: Screen }) {
         <form onSubmit={submit}>
           {register && (
             <>
-              <Field label="FULL NAME" placeholder="Enter your name" />
-              {admin && <Field label="ORGANIZATION" placeholder="Company or team name" />}
+              <Field
+                label="FULL NAME"
+                placeholder="Enter your name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+              {admin && (
+                <Field
+                  label="ORGANIZATION"
+                  placeholder="Company or team name"
+                  value={organization}
+                  onChange={(e) => setOrganization(e.target.value)}
+                />
+              )}
             </>
           )}
 
@@ -242,13 +312,14 @@ export function AuthView({ screen }: { screen: Screen }) {
             </label>
           )}
 
-          <Button type="submit">
-            {register
-              ? "Create account"
-              : admin
-                ? "Sign in to interviews"
-                : "Sign in"}{" "}
-            →
+          <Button type="submit" disabled={loading}>
+            {loading
+              ? "Please wait..."
+              : register
+                ? "Create account →"
+                : admin
+                  ? "Sign in to interviews →"
+                  : "Sign in →"}
           </Button>
 
           {error && <div className="error">{error}</div>}
