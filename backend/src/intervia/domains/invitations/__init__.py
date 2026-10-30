@@ -1,0 +1,1 @@
+# src/intervia/domains/invitations/__init__.py

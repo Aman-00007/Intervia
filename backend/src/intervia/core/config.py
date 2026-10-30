@@ -19,16 +19,21 @@ class Settings(BaseSettings):
     AES_MASTER_KEY_HEX: str
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     # 4 Redis, Judge0/Piston & S3 Storage
     REDIS_URL: str = "redis://localhost:6379/0"
     JUDGE0_API_URL: str = "https://emkc.org/api/v2/piston"
+    JUDGE0_API_KEY: str = "" 
     S3_ENDPOINT_URL: str = ""
     S3_ACCESS_KEY_ID: str = ""
     S3_SECRET_ACCESS_KEY: str = ""
     S3_BUCKET_NAME: str = "offline-blackbox-media"
     S3_REGION: str = "ap-south-1"
+    HMAC_OFFLINE_SECRET: str = "intervia_offline_secret_key_123"
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+settings = get_settings()

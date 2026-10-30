@@ -3,6 +3,7 @@ from sqlalchemy import MetaData, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 from intervia.core.config import get_settings
+# from intervia.domains.auth.models import User 
 
 settings = get_settings()
 
@@ -50,6 +51,11 @@ async def get_vault_db() -> AsyncGenerator[AsyncSession, None]:
     async with VaultSessionLocal() as session:
         yield session
 
+
+async def get_ops_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dependency for injecting interview operations sessions."""
+    async with OpsSessionLocal() as session:
+        yield session
 
 async def get_ops_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for injecting interview operations sessions."""
