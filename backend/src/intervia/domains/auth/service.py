@@ -1,18 +1,17 @@
 # src/intervia/domains/auth/service.py
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from passlib.context import CryptContext
 import jwt
+import bcrypt  # <-- Using native bcrypt instead of passlib
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from intervia.core.config import settings
+from intervia.core.config import get_settings
 from .models import User, UserRole
 from .repository import UserRepository
 from .schemas import UserRegisterRecruiter, UserRegisterCandidate, UserLogin
 
-# Password hashing configuration
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+settings = get_settings()
 
 class AuthService:
     def __init__(self, session: AsyncSession):
@@ -20,10 +19,16 @@ class AuthService:
         self.repo = UserRepository(session)
 
     def _hash_password(self, password: str) -> str:
-        return pwd_context.hash(password)
+        # Native bcrypt hashing
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
     def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        return pwd_context.verify(plain_password, hashed_password)
+        # Native bcrypt verification
+        try:
+            return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        except ValueError:
+            return False
 
     def _create_access_token(self, subject: str, role: str) -> str:
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -64,7 +69,7 @@ class AuthService:
             email=data.email,
             full_name=data.full_name,
             hashed_password=self._hash_password(data.password),
-            role=UserRole.CANDIDATE,
+            role=UserRole.STUDENT,
             terms_accepted=data.terms_accepted
         )
         return await self.repo.create(new_user)

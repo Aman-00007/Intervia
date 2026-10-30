@@ -42,7 +42,7 @@ async def submit_consent(
     user_id = current_user["user_id"]
     
     try:
-        await repo.create_candidate_identity(request)
+        await repo.create_candidate_identity(user_id,request)
         await repo.record_dpdp_consent(user_id, session_id, request)
         await db_session.commit()
         

@@ -15,9 +15,10 @@ class OnboardingRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def create_candidate_identity(self, data: OnboardingRequest) -> CandidateIdentity:
+    async def create_candidate_identity(self, user_id: uuid.UUID, data: OnboardingRequest) -> CandidateIdentity:
         """Saves the real identity into Physical Table 1."""
         candidate = CandidateIdentity(
+            user_id=user_id,  # <-- Make sure this is here!
             real_full_name=data.real_full_name,
             real_email=data.real_email,
             real_phone=data.real_phone,
@@ -25,9 +26,8 @@ class OnboardingRepository:
             github_username=data.github_username
         )
         self.session.add(candidate)
-        await self.session.flush() 
+        await self.session.flush() # Flushes to get the auto-generated user_id
         return candidate
-
     async def record_dpdp_consent(self, user_id: uuid.UUID, session_id: uuid.UUID, data: OnboardingRequest) -> DPDPConsentRecord:
         """Saves the legal consent into Physical Table 2."""
         consent_record = DPDPConsentRecord(

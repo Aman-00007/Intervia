@@ -19,6 +19,6 @@ class RequireRole:
         # For local development / testing, you can pass a mock user or decode your JWT here
         # Let's return a dummy student payload so /docs testing works seamlessly!
         return {
-            "user_id": "dev-test-user-id",
+            "user_id": "00000000-0000-4000-8000-000000000001",
             "role": UserRole.STUDENT
         }
