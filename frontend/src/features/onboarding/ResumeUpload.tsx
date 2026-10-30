@@ -1,7 +1,54 @@
+import { useState, ChangeEvent } from "react";
 import { navigate } from "../../core/router";
-import { Button, Page, Panel } from "../../shared/components/UI";
+import { Button, Page } from "../../shared/components/UI";
+import { api } from "../../api";
 
 export function ResumeUpload() {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [fileName, setFileName] = useState("resume_C-7K2.pdf");
+  const [tokenizedPreview, setTokenizedPreview] = useState<string | null>(null);
+
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadSuccess(false);
+
+    const sessionId = localStorage.getItem("intervia_session_id");
+    if (!sessionId) {
+      alert("Session ID missing. Please go back to the consent screen.");
+      setIsUploading(false);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("session_id", sessionId);
+    formData.append("file", file);
+    // Optional: You can add a GitHub username input field later if needed
+    // formData.append("github_username", "candidate-github"); 
+
+    try {
+      // 1. Send to backend for Presidio tokenization & AI question generation
+      const res = await api.prepareInterview(formData);
+      
+      // 2. Pre-load the offline buffer with the scrubbed text
+      await api.prepareOfflineBuffer({ 
+        session_id: sessionId, 
+        cleaned_resume_text: res.scrubbed_text 
+      });
+
+      setFileName(file.name);
+      setTokenizedPreview(res.scrubbed_text);
+      setUploadSuccess(true);
+    } catch (err: any) {
+      alert(`Upload failed: ${err.message || "Please try again."}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <Page
       className="resume-page"
@@ -32,13 +79,20 @@ export function ResumeUpload() {
             </div>
             <h2>Drop your resume here</h2>
             <p>PDF or DOCX · up to 10 MB</p>
-            <button
-              type="button"
-              className="btn-replace-resume"
-              onClick={() => alert("Upload dialog: You can select a new PDF or DOCX file to re-run Presidio anonymization.")}
-            >
-              Choose replacement file →
-            </button>
+            
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              accept=".pdf,.docx"
+              id="resume-file-input"
+              style={{ display: "none" }}
+              onChange={handleFileUpload}
+            />
+            
+            {/* Trigger Label styled as a button */}
+            <label htmlFor="resume-file-input" className="btn-replace-resume" style={{ cursor: "pointer" }}>
+              {isUploading ? "Uploading & Tokenizing..." : "Choose replacement file →"}
+            </label>
           </div>
 
           {/* Encrypted Vault Asset Card */}
@@ -46,7 +100,7 @@ export function ResumeUpload() {
             <div className="vault-card-header">
               <span className="file-doc-icon">📄</span>
               <div className="vault-file-meta">
-                <code className="vault-file-name">resume_C-7K2.pdf</code>
+                <code className="vault-file-name">{fileName}</code>
                 <span className="vault-file-size">248 KB · Encrypted at rest</span>
               </div>
             </div>
@@ -62,19 +116,19 @@ export function ResumeUpload() {
             <div className="check-row-item">
               <span className="check-item-label">Document extracted</span>
               <span className="check-status-pill green">
-                <span className="pill-check">✓</span> Complete
+                <span className="pill-check">{isUploading ? "..." : "✓"}</span> {isUploading ? "Processing" : "Complete"}
               </span>
             </div>
             <div className="check-row-item">
               <span className="check-item-label">Presidio tokenization</span>
               <span className="check-status-pill green">
-                <span className="pill-check">✓</span> 5 categories
+                <span className="pill-check">{isUploading ? "..." : "✓"}</span> {isUploading ? "Processing" : "5 categories"}
               </span>
             </div>
             <div className="check-row-item">
               <span className="check-item-label">Preview ready for review</span>
               <span className="check-status-pill green">
-                <span className="pill-check">✓</span> Complete
+                <span className="pill-check">{uploadSuccess ? "✓" : "○"}</span> {uploadSuccess ? "Complete" : "Pending"}
               </span>
             </div>
           </div>
@@ -97,7 +151,7 @@ export function ResumeUpload() {
             </div>
             <span className="preview-status-pill">
               <span className="pulse-indicator" />
-              Tokenization complete
+              {isUploading ? "Tokenizing..." : uploadSuccess ? "Tokenization complete" : "Awaiting upload"}
             </span>
           </div>
 
@@ -118,57 +172,25 @@ export function ResumeUpload() {
 
           <div className="preview-divider" />
 
-          {/* Profile Section */}
+          {/* Dynamic Preview Section (Replaces the hardcoded placeholder text) */}
           <div className="preview-section">
-            <small className="section-label">PROFILE / C-7K2</small>
-            <p className="section-copy">
-              Backend engineer with 3 years of experience building Python services, REST APIs and asynchronous job pipelines. Focused on reliable data processing and clear, testable code.
-            </p>
-          </div>
-
-          <div className="preview-divider" />
-
-          {/* Experience Section */}
-          <div className="preview-section">
-            <small className="section-label">SELECTED EXPERIENCE</small>
-            <div className="experience-role-header">
-              <h3 className="role-title">Software engineer · [ORG_1]</h3>
-              <span className="role-period">2023–2026</span>
-            </div>
-            <ul className="experience-list">
-              <li>Built FastAPI services backed by PostgreSQL and Redis.</li>
-              <li>Implemented idempotent workers for event-driven ingestion.</li>
-              <li>Added pytest integration coverage and CI checks for API contracts.</li>
-            </ul>
-          </div>
-
-          <div className="preview-divider" />
-
-          {/* Technical Toolkit */}
-          <div className="preview-section">
-            <small className="section-label">TECHNICAL TOOLKIT</small>
-            <div className="tech-tags-grid">
-              <span className="tech-tag">Python 3.11</span>
-              <span className="tech-tag">SQL</span>
-              <span className="tech-tag">FastAPI</span>
-              <span className="tech-tag">PostgreSQL</span>
-              <span className="tech-tag">Redis</span>
-              <span className="tech-tag">Docker</span>
-              <span className="tech-tag">pytest</span>
-              <span className="tech-tag">Git</span>
-              <span className="tech-tag">Data structures</span>
-            </div>
-          </div>
-
-          <div className="preview-divider" />
-
-          {/* Education */}
-          <div className="preview-section">
-            <small className="section-label">EDUCATION</small>
-            <div className="education-row">
-              <span className="degree-text">BSc Computer Science</span>
-              <span className="edu-org">· [ORG_2] · 2023</span>
-            </div>
+            <small className="section-label">PROFILE / {fileName.replace('.pdf', '')}</small>
+            {tokenizedPreview ? (
+              <pre style={{ 
+                whiteSpace: "pre-wrap", 
+                fontFamily: "inherit", 
+                fontSize: "13px", 
+                lineHeight: "1.6", 
+                color: "#cccccc",
+                margin: 0
+              }}>
+                {tokenizedPreview}
+              </pre>
+            ) : (
+              <p className="section-copy" style={{ opacity: 0.5 }}>
+                Awaiting document upload. Once you upload your PDF, the AI-safe tokenized preview will appear here.
+              </p>
+            )}
           </div>
         </section>
       </div>
@@ -189,7 +211,13 @@ export function ResumeUpload() {
           </Button>
           <Button
             className="btn-confirm-lobby"
-            onClick={() => navigate("/candidate/lobby")}
+            onClick={() => {
+              if (!uploadSuccess) {
+                alert("Please upload your resume first so the AI can generate your interview questions.");
+                return;
+              }
+              navigate("/candidate/lobby");
+            }}
           >
             Confirm & go to lobby →
           </Button>

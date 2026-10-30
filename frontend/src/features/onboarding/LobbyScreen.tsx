@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { navigate } from "../../core/router";
 import { Page, Panel } from "../../shared/components/UI";
+import { api } from "../../api"; // Added API import
 
 export function LobbyScreen() {
   const [micMuted, setMicMuted] = useState(false);
@@ -10,10 +11,41 @@ export function LobbyScreen() {
   const [testSuccess, setTestSuccess] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
 
+  // --- NEW: Backend State ---
+  const [interviewerPresent, setInterviewerPresent] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const animFrameRef = useRef<number | null>(null);
+
+  // --- NEW: Connect to WebRTC Signaling to check if Interviewer is present ---
+  useEffect(() => {
+    const ws = new WebSocket(`ws://localhost:8000/v1/workspace/ws/webrtc/${sessionId}`);
+    
+    ws.onopen = () => {
+      console.log("Connected to Lobby Signaling");
+      // Notify server we are in the lobby
+      ws.send(JSON.stringify({ type: "JOIN_LOBBY", role: "CANDIDATE" }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "INTERVIEWER_PRESENT") {
+          setInterviewerPresent(true);
+        }
+      } catch {
+        // Handle non-JSON WebRTC signals (SDP/ICE)
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [sessionId]);
 
   // Initialize live webcam & microphone stream in Lobby
   useEffect(() => {
@@ -137,6 +169,24 @@ export function LobbyScreen() {
       setTestingAudio(false);
       setTestSuccess(true);
     }, 1200);
+  };
+
+  // --- NEW: Handle Join Interview with Backend Sync ---
+  const handleJoinInterview = async () => {
+    setIsJoining(true);
+    try {
+      // Notify backend candidate is entering (Optional depending on your backend logic)
+      // In a real app, you might call an endpoint here to update the session status
+      // await api.updateSessionStatus({ session_id: sessionId, status: "LIVE" });
+      
+      navigate("/candidate/workspace");
+    } catch (error) {
+      console.error("Failed to sync join status with backend", error);
+      // Fallback: Navigate anyway so the candidate isn't blocked
+      navigate("/candidate/workspace");
+    } finally {
+      setIsJoining(false);
+    }
   };
 
   return (
@@ -344,7 +394,7 @@ export function LobbyScreen() {
             <div className="admission-meta-list">
               <div className="admission-meta-row">
                 <span className="meta-key">Session / candidate</span>
-                <span className="meta-val mono">IV-2048 / C-7K2</span>
+                <span className="meta-val mono">{sessionId.substring(0, 8)} / C-7K2</span>
               </div>
               <div className="admission-meta-row">
                 <span className="meta-key">Duration</span>
@@ -358,7 +408,7 @@ export function LobbyScreen() {
 
             <div className="interviewer-status-badge">
               <span className="presence-dot">▪</span>
-              <span>Interviewer I-014 is in the room</span>
+              <span>{interviewerPresent ? "Interviewer I-014 is in the room" : "Waiting for interviewer to join..."}</span>
             </div>
 
             <p className="admission-instructions">
@@ -368,9 +418,10 @@ export function LobbyScreen() {
             <button
               type="button"
               className="join-interview-cta-btn"
-              onClick={() => navigate("/candidate/workspace")}
+              onClick={handleJoinInterview}
+              disabled={isJoining}
             >
-              Join interview <span className="arrow-glyph">→</span>
+              {isJoining ? "Connecting..." : "Join interview"} <span className="arrow-glyph">→</span>
             </button>
 
             <p className="admission-legal-note">

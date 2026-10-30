@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Screen } from "../../core/models/screens";
 import { navigate } from "../../core/router";
 import { getCandidateAIVisibility, setCandidateAIVisibility } from "../../core/interviewSettings";
 import { Button, DataTable, Field, Page, Panel, Status } from "../../shared/components/UI";
 import { ManageInterview } from "./ManageInterview";
+import { api } from "../../api";
 
 export function DashboardView({ screen }: { screen: Extract<Screen, "interviewer-dashboard" | "create-interview" | "manage-interview" | "candidate-dashboard"> }) {
   if (screen === "candidate-dashboard") return <Page className="candidate-dashboard-page" eyebrow="YOUR INTERVIEWS / C-7K2" title="Your next conversation."><p className="page-intro">View invitations, finish session setup and return to feedback from earlier interviews.</p><div className="two-col candidate-hero-grid"><Panel className="candidate-session-card"><div className="panel-heading"><small>TODAY / IV-2048</small><small className="status">■ Invitation accepted</small></div><h2>Backend engineering</h2><p>27 Oct 2026 · 14:00–14:45 UTC · 45 minutes</p><p>A human-led technical discussion with collaborative coding in Python 3.11.</p><div className="callout"><span><b>Your invitation is verified.</b><small>Join takes you through consent and device checks first.</small></span><Button onClick={() => navigate("/candidate/consent")}>Join interview →</Button></div></Panel><Panel className="session-setup-card"><h2>Session setup</h2><div className="setup-status-row"><span>Invitation</span><b>Verified</b></div><div className="setup-status-row"><span>Privacy consent</span><b>Review required</b></div><div className="setup-status-row"><span>Resume</span><b>Not yet reviewed</b></div><div className="setup-status-row"><span>Microphone & camera</span><b>Check required</b></div><p className="setup-explanation">No recording is active. Complete these checks before entering the live conversation.</p><button className="text-button" onClick={() => navigate("/candidate/consent")}>Review privacy & devices →</button></Panel></div><DataTable candidate title="Previous interviews" rows={["IV-2039 / C-7K2 | API design discussion | 22 Oct 2026 · 10:00 UTC | Ready", "IV-2021 / C-7K2 | Data modeling discussion | 14 Oct 2026 · 11:00 UTC | Ready", "IV-2007 / C-7K2 | Python services discussion | 07 Oct 2026 · 09:00 UTC | Ready"]} /><div className="two-col candidate-info-grid"><Panel><h2>A clear connection</h2><p>Choose your microphone and camera during session setup. A local 8-minute buffer helps retain work if the connection drops.</p><button className="text-button">Device help ↗</button></Panel><Panel><h2>Feedback that stays useful</h2><p>Your own reports include constructive feedback and code evidence. Interviewer-only notes remain private.</p><button className="text-button" onClick={() => navigate("/candidate/reports")}>All reports / previous reports →</button></Panel></div></Page>;
@@ -14,6 +15,35 @@ export function DashboardView({ screen }: { screen: Extract<Screen, "interviewer
 
 function InterviewerDashboard() {
   const [copyLinkToast, setCopyLinkToast] = useState("");
+  
+  // --- NEW: Backend State ---
+  const [dashboardData, setDashboardData] = useState<any>(null);
+
+  useEffect(() => {
+    api.getInterviewerDashboard()
+      .then(data => setDashboardData(data))
+      .catch(err => console.error("Failed to load dashboard", err));
+  }, []);
+
+  // --- NEW: Format Backend Data for DataTable ---
+  const upcomingRows = dashboardData?.upcoming_interviews?.map((i: any) => {
+    const candidateId = i.id ? `C-${i.id.substring(0, 3).toUpperCase()}` : "C-XXX";
+    const date = new Date(i.scheduled_at).toLocaleString();
+    return `${i.code} / ${candidateId} | ${i.role_title} · ${i.duration_minutes} min | ${date} | ${i.status}`;
+  }) || [
+    "IV-2051 / C-9M4 | Backend engineering · 45 min | 28 Oct 2026 · 10:00 UTC | Delivered · awaiting reply",
+    "IV-2054 / C-3P8 | Platform engineering · 60 min | 29 Oct 2026 · 15:00 UTC | Accepted",
+  ];
+
+  const previousRows = dashboardData?.previous_interviews?.map((i: any) => {
+    const candidateId = i.id ? `C-${i.id.substring(0, 3).toUpperCase()}` : "C-XXX";
+    const date = new Date(i.scheduled_at).toLocaleString();
+    return `${i.code} / ${candidateId} | ${i.role_title} | ${date} | ${i.status}`;
+  }) || [
+    "IV-2039 / C-7K2 | API design discussion | 22 Oct 2026 · 10:00 UTC | Ready",
+    "IV-2026 / C-5N1 | Backend engineering | 19 Oct 2026 · 09:00 UTC | Ready",
+    "IV-2018 / C-2R6 | Platform engineering | 15 Oct 2026 · 13:00 UTC | Ready",
+  ];
 
   const handleCopyInvite = (code: string) => {
     const inviteUrl = `${window.location.origin}/candidate/login?invite=${code}`;
@@ -74,14 +104,15 @@ function InterviewerDashboard() {
         <Panel>
           <h2>Invitation management</h2>
           <div className="summary-list">
+            {/* --- NEW: Dynamic Metrics --- */}
             <span>
-              Upcoming sessions <b>2 scheduled</b>
+              Upcoming sessions <b>{dashboardData?.metrics?.upcoming_sessions ?? "2"} scheduled</b>
             </span>
             <span>
-              Invitations delivered <b>2 / 2</b>
+              Invitations delivered <b>{dashboardData?.metrics?.invitations_delivered ?? "2"} / {dashboardData?.metrics?.invitations_delivered ?? "2"}</b>
             </span>
             <span>
-              Awaiting response <b>1 invitation</b>
+              Awaiting response <b>{dashboardData?.metrics?.awaiting_response ?? "1"} invitation</b>
             </span>
           </div>
           <p>
@@ -101,21 +132,17 @@ function InterviewerDashboard() {
           </div>
         </Panel>
       </div>
+      
+      {/* --- NEW: Dynamic DataTables --- */}
       <DataTable
         title="Upcoming scheduled interviews"
-        rows={[
-          "IV-2051 / C-9M4 | Backend engineering · 45 min | 28 Oct 2026 · 10:00 UTC | Delivered · awaiting reply",
-          "IV-2054 / C-3P8 | Platform engineering · 60 min | 29 Oct 2026 · 15:00 UTC | Accepted",
-        ]}
+        rows={upcomingRows}
       />
       <DataTable
         title="Previous interviews"
-        rows={[
-          "IV-2039 / C-7K2 | API design discussion | 22 Oct 2026 · 10:00 UTC | Ready",
-          "IV-2026 / C-5N1 | Backend engineering | 19 Oct 2026 · 09:00 UTC | Ready",
-          "IV-2018 / C-2R6 | Platform engineering | 15 Oct 2026 · 13:00 UTC | Ready",
-        ]}
+        rows={previousRows}
       />
+      
       <div className="management-footer">
         <small>OPERATIONAL LISTS USE ANONYMOUS CANDIDATE CODES</small>
         <button
@@ -129,8 +156,18 @@ function InterviewerDashboard() {
     </Page>
   );
 }
+
 function CreateInterview() {
   const [aiVisible, setAiVisible] = useState(getCandidateAIVisibility);
+  
+  // --- NEW: State for Form Fields ---
+  const [title, setTitle] = useState("Backend engineering");
+  const [date, setDate] = useState("2026-10-28");
+  const [time, setTime] = useState("10:00");
+  const [duration, setDuration] = useState(45);
+  const [candidateEmail, setCandidateEmail] = useState("candidate@example.com");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [activities, setActivities] = useState([
     { id: 1, name: "Introductions", time: "5 min" },
     { id: 2, name: "Technical discussion", time: "10 min" },
@@ -174,6 +211,29 @@ function CreateInterview() {
     ]);
   };
 
+  // --- NEW: Connect to Backend API ---
+  const handleSaveAndSend = async () => {
+    setIsSubmitting(true);
+    try {
+      // Combine date and time strings into a valid ISO date string
+      const dateTimeStr = new Date(`${date}T${time}:00Z`).toISOString();
+      
+      await api.createInvitation({
+        role_title: title,
+        duration_minutes: Number(duration),
+        scheduled_at: dateTimeStr,
+        candidate_email: candidateEmail,
+      });
+      
+      alert("Invitation sent successfully!");
+      navigate("/interviewer");
+    } catch (error) {
+      alert("Failed to send invitation. Please check backend connection.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Page
       className="create-interview-page"
@@ -196,19 +256,43 @@ function CreateInterview() {
         <div className="create-main-column">
           <Panel className="create-details">
             <h2>Interview details</h2>
-            <Field label="INTERVIEW TITLE / ROLE" placeholder="Backend engineering" />
+            {/* --- NEW: Bound to State --- */}
+            <Field 
+              label="INTERVIEW TITLE / ROLE" 
+              placeholder="Backend engineering" 
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
             <div className="manage-three-col-row">
-              <Field label="DATE" placeholder="28 Oct 2026" />
-              <Field label="START TIME" placeholder="10:00" />
-              <Field label="TIMEZONE" placeholder="UTC" />
+              <Field 
+                label="DATE" 
+                placeholder="2026-10-28" 
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+              <Field 
+                label="START TIME" 
+                placeholder="10:00" 
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+              <Field label="TIMEZONE" placeholder="UTC" value="UTC" />
             </div>
             <div className="manage-two-col-row">
-              <Field label="DURATION" placeholder="45 minutes" />
-              <Field label="INTERVIEWER" placeholder="Interviewer I-014" />
+              <Field 
+                label="DURATION (MINUTES)" 
+                placeholder="45" 
+                type="number"
+                value={duration.toString()}
+                onChange={(e) => setDuration(Number(e.target.value))}
+              />
+              <Field label="INTERVIEWER" placeholder="Interviewer I-014" value="Interviewer I-014" />
             </div>
             <Field
               label="CANDIDATE INVITATION · PROTECTED IDENTITY"
               placeholder="Enter candidate email or invitation identifier"
+              value={candidateEmail}
+              onChange={(e) => setCandidateEmail(e.target.value)}
             />
             <p className="form-note">
               Invitation contact is an identity-only field stored separately in encrypted identity_vault. It is not sent to AI or included in interview_ops telemetry.
@@ -370,7 +454,10 @@ function CreateInterview() {
         <div className="bottom-bar-right form-actions">
           <Button secondary>Save draft →</Button>
           <Button secondary>Review invitation →</Button>
-          <Button onClick={() => navigate("/interviewer")}>Save & send invitation →</Button>
+          {/* --- NEW: Connected to API --- */}
+          <Button onClick={handleSaveAndSend} disabled={isSubmitting}>
+            {isSubmitting ? "Sending..." : "Save & send invitation →"}
+          </Button>
         </div>
       </div>
     </Page>

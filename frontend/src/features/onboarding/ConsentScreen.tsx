@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../../core/api";
+import { api } from "../../api";
 import { navigate } from "../../core/router";
 import { Button, Page, Panel } from "../../shared/components/UI";
 
@@ -74,6 +74,7 @@ function findBestMic(devices: MediaDeviceInfo[]) {
 export function ConsentScreen() {
   const [permissions, setPermissions] = useState([true, true, true, true]);
   const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [micTesting, setMicTesting] = useState(false);
   const [micTested, setMicTested] = useState(true);
   const [camTesting, setCamTesting] = useState(false);
@@ -414,7 +415,7 @@ export function ConsentScreen() {
 
         if (totalSkin < 250) {
           setFaceCount(0);
-        } else if (peaks.length >= 2) {
+        } else if (peaks.length >= 3) {
           setFaceCount(peaks.length);
         } else {
           setFaceCount(1);
@@ -442,6 +443,7 @@ export function ConsentScreen() {
 
   const accepted = permissions.every(Boolean);
 
+  // --- CONNECT TO BACKEND AND SAVE SESSION ID ---
   const submit = async () => {
     if (!accepted) {
       setMessage("Please accept all required permissions before continuing.");
@@ -455,24 +457,33 @@ export function ConsentScreen() {
       setMessage("SmartHire Audio Check: Please read the verification sentence aloud into your microphone to verify speech clarity before continuing.");
       return;
     }
+
+    setIsSubmitting(true);
     try {
       if (selectedCam) sessionStorage.setItem("intervia_selected_cam", selectedCam);
       if (selectedMic) sessionStorage.setItem("intervia_selected_mic", selectedMic);
-      await api.submitConsent({
-        real_full_name: "Candidate",
+      
+      const res = await api.submitConsent({
+        real_full_name: "Candidate", // Can be passed from auth context if needed
         real_email: "candidate@example.com",
         is_above_18_verified: true,
         purposes_accepted: {
-          camera_audio: true,
-          ai_processing: true,
-          data_retention: true,
+          camera_audio: permissions[0],
+          ai_processing: permissions[1],
+          data_retention: permissions[2],
         },
       });
+
+      // CRITICAL: Save the session_id returned from the backend!
+      localStorage.setItem("intervia_session_id", res.session_id);
+      
       navigate("/candidate/resume");
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Consent could not be saved."
       );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -666,16 +677,18 @@ export function ConsentScreen() {
                                 </Button>
 
                                 <Button
-                                  className={`agree-continue-btn ${!speechDetected || faceCount > 1 ? "btn-unverified" : ""}`}
+                                  className={`agree-continue-btn ${(!speechDetected || faceCount > 1 || isSubmitting) ? "btn-unverified" : ""}`}
                                   onClick={() => {
                                     void submit();
                                   }}
                                 >
-                                  {faceCount > 1
+                                  {isSubmitting
+                                    ? "Saving consent..."
+                                    : faceCount > 1
                                     ? "Multiple people in camera frame"
                                     : speechDetected
-                                      ? "Agree & continue to resume →"
-                                      : "Speak verification sentence to continue →"}
+                                    ? "Agree & continue to resume →"
+                                    : "Speak verification sentence to continue →"}
                                 </Button>
                               </div>
 

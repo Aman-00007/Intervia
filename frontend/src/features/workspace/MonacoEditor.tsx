@@ -1,5 +1,5 @@
 import Editor, { type OnMount } from "@monaco-editor/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 function getAppTheme(): "light" | "dark" {
   const app = document.querySelector(".app");
@@ -19,6 +19,50 @@ export function MonacoEditor({
 }) {
   const [theme, setTheme] = useState<"light" | "dark">(() => getAppTheme());
   const [clipboardWarning, setClipboardWarning] = useState<string>("");
+  
+  // --- NEW: WebSocket State for Real-time Collaboration ---
+  const wsRef = useRef<WebSocket | null>(null);
+  const isRemoteUpdate = useRef(false);
+
+  // --- NEW: Connect to Yjs WebSocket on mount ---
+  useEffect(() => {
+    const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+    // Connect to the backend WebSocket endpoint for Yjs sync
+    const ws = new WebSocket(`ws://localhost:8000/v1/workspace/ws/yjs/${sessionId}`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log("Connected to Yjs Editor Sync");
+    };
+
+    ws.onmessage = (event) => {
+      if (typeof event.data === "string") {
+        // Flag that this update came from the server, not the user typing
+        isRemoteUpdate.current = true;
+        onChange(event.data); 
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [onChange]);
+
+  // --- NEW: Handle Local Changes and Broadcast ---
+  const handleEditorChange = (nextValue: string | undefined) => {
+    const val = nextValue ?? "";
+    
+    // Always update local state
+    onChange(val);
+    
+    // Only send to backend if the change originated from THIS user
+    if (!isRemoteUpdate.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(val);
+    }
+    
+    // Reset the remote update flag
+    isRemoteUpdate.current = false;
+  };
 
   const triggerClipboardBlocked = (action: string) => {
     const msg = action === "paste"
@@ -139,7 +183,7 @@ export function MonacoEditor({
         language="python"
         value={value}
         theme={activeTheme}
-        onChange={(nextValue) => onChange(nextValue ?? "")}
+        onChange={handleEditorChange} // <-- MODIFIED: Using our new wrapped handler
         onMount={handleEditorDidMount}
         loading={<div className="editor-loading">Loading editor…</div>}
         beforeMount={(monaco) => {

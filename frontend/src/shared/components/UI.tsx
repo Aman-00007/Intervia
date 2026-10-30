@@ -51,29 +51,37 @@ export function Panel({
 }) {
   return <section className={`panel ${className}`}>{children}</section>;
 }
+
 export function Button({
   children,
   onClick,
   secondary = false,
   className = "",
   type = "button",
+  disabled = false,
 }: {
   children: ReactNode;
   onClick?: () => void;
   secondary?: boolean;
   className?: string;
   type?: "button" | "submit" | "reset";
+  disabled?: boolean;
 }) {
   return (
     <button
       type={type}
       className={`btn ${secondary ? "btn-secondary secondary" : "btn-primary primary"} ${className}`.trim()}
       onClick={onClick}
+      disabled={disabled}
+      style={{ opacity: disabled ? 0.6 : 1, cursor: disabled ? "not-allowed" : "pointer" }}
     >
       {children}
     </button>
   );
 }
+
+
+
 export function Field({
   label,
   placeholder,

@@ -12,6 +12,9 @@ import { MonacoEditor } from "./MonacoEditor";
 import { TestResultsConsole } from "./TestResultsConsole";
 import { useAntiCheatSandbox } from "./hooks/useAntiCheatSandbox";
 import { HmacLogEntry, securityAuditLogger } from "../offline/HmacChainLogger";
+// --- NEW IMPORTS FOR BLACK BOX ---
+import { MediaRecorderSync } from "../offline/MediaRecorderSync";
+import { uploadChunks } from "../offline/ChunkUploader";
 
 export function WorkspaceView({
   screen,
@@ -48,11 +51,15 @@ export function WorkspaceView({
   const isInterviewer = screen === "interviewer-workspace";
   const isCandidateShared = screen === "candidate-shared" || (!isInterviewer && candidateVisible);
 
+  // GET REAL SESSION ID FROM LOCAL STORAGE
+  const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+
   return (
-    <WebSocketProvider sessionId="demo-session">
+    <WebSocketProvider sessionId={sessionId}>
       <WorkspaceContent
         interviewer={isInterviewer}
         shared={isCandidateShared}
+        sessionId={sessionId}
       />
     </WebSocketProvider>
   );
@@ -61,9 +68,11 @@ export function WorkspaceView({
 function WorkspaceContent({
   interviewer,
   shared,
+  sessionId,
 }: {
   interviewer: boolean;
   shared: boolean;
+  sessionId: string;
 }) {
   const [code, setCode] = useState(`def merge_intervals(intervals):
     ordered = sorted(intervals, key=lambda pair: pair[0])
@@ -93,6 +102,31 @@ function WorkspaceContent({
   const [stagedToast, setStagedToast] = useState("");
   const [privateNote, setPrivateNote] = useState("");
 
+  // --- NEW: BLACK BOX STATE ---
+  const [isWifiOffline, setIsWifiOffline] = useState(false);
+  const recorderRef = useRef<MediaRecorderSync | null>(null);
+
+  // --- CONNECT YJS & WEBRTC WEBSOCKETS ---
+  useEffect(() => {
+    // 1. Yjs Collaborative Editor Sync
+    const yjsWs = new WebSocket(`ws://localhost:8000/v1/workspace/ws/yjs/${sessionId}`);
+    yjsWs.onopen = () => console.log("Yjs WS Connected");
+    yjsWs.onmessage = (event) => {
+      console.log("Yjs Update received");
+    };
+
+    // 2. WebRTC Signaling
+    const webrtcWs = new WebSocket(`ws://localhost:8000/v1/workspace/ws/webrtc/${sessionId}`);
+    webrtcWs.onmessage = (event) => {
+      console.log("WebRTC Signal received");
+    };
+
+    return () => {
+      yjsWs.close();
+      webrtcWs.close();
+    };
+  }, [sessionId]);
+
   // Tab Switch Security & Proctor Sandbox (HackerRank-style)
   const {
     tabSwitchCount,
@@ -107,6 +141,14 @@ function WorkspaceContent({
   } = useAntiCheatSandbox({
     enabled: candidateWorkspace,
     maxAllowedSwitches: 3,
+    onViolation: (entry) => {
+      api.logSecurityEvent({
+        session_id: sessionId,
+        event_type: entry.eventType,
+        timestamp: entry.timestamp,
+        details: JSON.parse(entry.payload),
+      }).catch(console.error);
+    }
   });
 
   // Local Webcam Stream for Workspace WebRTC Rail
@@ -200,6 +242,11 @@ function WorkspaceContent({
             localVideoRef.current?.play().catch(() => {});
           };
         }
+
+        // --- NEW: START THE BLACK BOX RECORDER ---
+        recorderRef.current = new MediaRecorderSync();
+        recorderRef.current.start(stream);
+
       } catch (err) {
         console.warn("Workspace camera fallback to still photo:", err);
         setLocalCamActive(false);
@@ -210,8 +257,32 @@ function WorkspaceContent({
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach((track) => track.stop());
       }
+      if (recorderRef.current) {
+        recorderRef.current.stop();
+      }
     };
   }, []);
+
+  // --- NEW: HANDLE SIMULATED WI-FI DROP / RECONNECT ---
+  const handleToggleWifi = async () => {
+    const nextOfflineState = !isWifiOffline;
+    setIsWifiOffline(nextOfflineState);
+
+    if (recorderRef.current) {
+      recorderRef.current.setOffline(nextOfflineState);
+    }
+
+    // If we just came back online, sync the buffered chunks!
+    if (!nextOfflineState && recorderRef.current) {
+      const pendingChunks = recorderRef.current.getPendingChunks();
+      if (pendingChunks.length > 0) {
+        setStagedToast(`🔄 Reconnected. Syncing ${pendingChunks.length} media chunks...`);
+        await uploadChunks(pendingChunks, sessionId);
+        recorderRef.current.clear();
+        setTimeout(() => setStagedToast("✅ Offline Media Synced to Backend!"), 3000);
+      }
+    }
+  };
 
   // Interviewer Real-Time Integrity Alerts & Cryptographic Chain State
   const [securityAlerts, setSecurityAlerts] = useState<HmacLogEntry[]>(() => {
@@ -234,7 +305,6 @@ function WorkspaceContent({
     return () => window.removeEventListener("intervia:security_violation", handleViolation);
   }, [interviewer]);
 
-  // Simulation handler for easy testing of anti-cheating feature
   const handleSimulateViolation = () => {
     const nextCount = Math.min(3, (tabSwitchCount || 0) + 1);
     securityAuditLogger.append("TAB_SWITCH", {
@@ -245,57 +315,39 @@ function WorkspaceContent({
     });
   };
 
+  const [isRunningCode, setIsRunningCode] = useState(false);
+
+  const handleRunCode = async () => {
+    setIsRunningCode(true);
+    try {
+      const res = await api.runCode({
+        session_id: sessionId,
+        language: "python",
+        source_code: code,
+        stdin: ""
+      });
+      alert(`Tests Passed: ${res.passed}\nOutput: ${res.stdout || "Success"}`);
+    } catch (err) {
+      alert("Code execution failed. Check backend.");
+    } finally {
+      setIsRunningCode(false);
+    }
+  };
+
   const handleRunNemotron = async (query: string) => {
     setNemotronLoading(true);
     try {
       const res = await api.askSharedAi({
-        session_id: "IV-2048",
+        session_id: sessionId,
         prompt_text: query,
         current_code_snapshot: code,
-        sandbox_error_context:
-          "Run #2 failed on touching endpoints: [[1,3],[3,5]] returned [[1,3],[3,5]], expected [[1,5]].",
+        sandbox_error_context: "Run #2 failed on touching endpoints: [[1,3],[3,5]] returned [[1,3],[3,5]], expected [[1,5]].",
       });
       if (res && res.response_text) {
         setNemotronOutput(res.response_text);
       }
     } catch {
-      // Intelligent pedagogical synthesis matching NVIDIA Nemotron 3 Nano output
-      const qLower = query.toLowerCase();
-      if (
-        qLower.includes("boundary") ||
-        qLower.includes("touching") ||
-        qLower.includes("bug")
-      ) {
-        setNemotronOutput(
-          "NVIDIA Nemotron 3 Code Audit:\n" +
-            "• Bug Location: Line 10 `if start < merged[-1][1]:` does not treat adjacent intervals as overlapping.\n" +
-            "• Remediation: Change strict inequality `<` to non-strict `<=`. Touching boundaries [1,3] and [3,5] share endpoint 3 and must merge into [1,5].\n" +
-            "• Candidate Guidance: Ask candidate how intervals sharing an exact endpoint should be combined."
-        );
-      } else if (qLower.includes("complexity")) {
-        setNemotronOutput(
-          "NVIDIA Nemotron 3 Complexity Evaluation:\n" +
-            "• Time Complexity: O(N log N) — dominated by `sorted(intervals, key=lambda pair: pair[0])`. The subsequent iteration is O(N).\n" +
-            "• Space Complexity: O(N) — creates a new output list without mutating caller's original input array."
-        );
-      } else if (qLower.includes("socratic") || qLower.includes("question")) {
-        setNemotronOutput(
-          "NVIDIA Nemotron 3 Socratic Probing Questions:\n" +
-            "1. 'What happens on line 10 if an interval starts at the exact number where the previous interval ends?'\n" +
-            "2. 'Can you walk through your loop with input [[1,3], [3,5]] step by step?'\n" +
-            "3. 'Why did you choose to sort by start index rather than end index?'"
-        );
-      } else if (qLower.includes("hint")) {
-        setNemotronOutput(
-          "Approved Candidate Hint (Nemotron Guardrailed):\n" +
-            "Closed intervals [1,3] and [3,5] share an endpoint at 3 and belong in a single unified interval [1,5]. Check your overlap comparison operator."
-        );
-      } else {
-        setNemotronOutput(
-          `NVIDIA Nemotron 3 Analysis for "${query}":\n` +
-            "Candidate's overall interval sorting pass is correct. Non-strict comparison `<` vs `<=` on boundary endpoints is the single reason 2 test cases are failing."
-        );
-      }
+      setNemotronOutput("NVIDIA Nemotron 3 is analyzing your request. (Backend fallback)");
     } finally {
       setNemotronLoading(false);
     }
@@ -305,10 +357,6 @@ function WorkspaceContent({
     let cleanHint = hintText;
     if (hintText.includes("Approved Candidate Hint")) {
       cleanHint = hintText.split("\n").slice(1).join(" ").trim();
-    } else if (hintText.includes("• Remediation:")) {
-      cleanHint = hintText.split("• Remediation:")[1].split("•")[0].trim();
-    } else if (hintText.includes("• Fix:")) {
-      cleanHint = hintText.split("• Fix:")[1].split("•")[0].trim();
     }
     setApprovedClarification(cleanHint);
     setStagedToast("✓ Staged for candidate sharing");
@@ -327,26 +375,54 @@ function WorkspaceContent({
     };
   }, []);
 
-  const updateSharing = () => {
+  const updateSharing = async () => {
     const nextSharingEnabled = !sharingEnabled;
     setSharingEnabled(nextSharingEnabled);
     if (interviewer) {
       setCandidateAIVisibility(nextSharingEnabled);
+      await api.toggleAiSharing({ session_id: sessionId, is_shared: nextSharingEnabled });
     }
   };
 
   const showCandidateAIRail = candidateWorkspace && (shared || sharingEnabled) && candidateShowAI;
 
+  // --- MODIFIED: DYNAMIC SYNC BADGE ---
   const syncBadge = (
-    <div className="workspace-sync-pill">
-      <span className="sync-dot">■</span>
-      <span>Yjs / WebSocket · synchronized</span>
+    <div 
+      className="workspace-sync-pill" 
+      style={{ 
+        background: isWifiOffline ? "rgba(239, 68, 68, 0.1)" : "rgba(23, 195, 178, 0.1)", 
+        borderColor: isWifiOffline ? "#ef4444" : "#17c3b2" 
+      }}
+    >
+      <span className="sync-dot" style={{ color: isWifiOffline ? "#ef4444" : "#17c3b2" }}>■</span>
+      <span>{isWifiOffline ? "OFFLINE BUFFER ACTIVE" : "Yjs / WebSocket · synchronized"}</span>
     </div>
   );
 
   const headerActions = (
     <div className="workspace-header-actions">
       <span className="session-timer">23:48 / 45:00</span>
+      
+      {/* --- NEW: HACKATHON DEMO BUTTON --- */}
+      <button
+        type="button"
+        onClick={handleToggleWifi}
+        style={{
+          background: isWifiOffline ? "#ef4444" : "#1c1c1c",
+          color: isWifiOffline ? "#fff" : "#ccc",
+          border: "1px solid " + (isWifiOffline ? "#ef4444" : "#333"),
+          padding: "6px 12px",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontSize: "12px",
+          fontWeight: 600,
+          marginRight: "8px"
+        }}
+      >
+        {isWifiOffline ? "🔴 Simulate Wi-Fi Return" : "⚡ Simulate Wi-Fi Drop"}
+      </button>
+
       {interviewer ? (
         <>
           <button
@@ -366,8 +442,10 @@ function WorkspaceContent({
           >
             ⚡ Test Tab Switch
           </button>
-          <Button className="workspace-btn btn-run">Run tests →</Button>
-          <Button secondary className="workspace-btn btn-end">End interview →</Button>
+          <Button onClick={handleRunCode} disabled={isRunningCode} className="workspace-btn btn-run">
+            {isRunningCode ? "Running..." : "Run tests →"}
+          </Button>
+          <Button secondary className="workspace-btn btn-end" onClick={() => navigate("/interviewer")}>End interview →</Button>
         </>
       ) : (
         <>
@@ -381,7 +459,9 @@ function WorkspaceContent({
               <span className="ai-dot-indicator">●</span> {candidateShowAI ? "Shared AI: ON" : "Shared AI: OFF"}
             </button>
           )}
-          <Button className="candidate-run-btn workspace-btn">Run tests →</Button>
+          <Button onClick={handleRunCode} disabled={isRunningCode} className="candidate-run-btn workspace-btn">
+            {isRunningCode ? "Running..." : "Run tests →"}
+          </Button>
           <Button secondary className="candidate-submit-btn workspace-btn">Submit code →</Button>
         </>
       )}
@@ -434,6 +514,12 @@ function WorkspaceContent({
                   action,
                   user: candidateWorkspace ? "C-7K2" : "I-014",
                 });
+                api.logSecurityEvent({
+                  session_id: sessionId,
+                  event_type: "CLIPBOARD_RESTRICTED",
+                  timestamp: new Date().toISOString(),
+                  details: { action }
+                }).catch(console.error);
               }}
             />
             <div className="editor-footer">
@@ -979,6 +1065,14 @@ function WorkspaceContent({
           </aside>
         </div>
       )}
+
+      {/* --- NEW: BLACK BOX SYNC TOAST --- */}
+      {stagedToast && (
+        <div style={{ position: "fixed", bottom: 24, right: 24, background: "#17c3b2", color: "#000", padding: "12px 20px", borderRadius: 8, fontWeight: 700, zIndex: 9999 }}>
+          {stagedToast}
+        </div>
+      )}
+
     </Page>
   );
 }

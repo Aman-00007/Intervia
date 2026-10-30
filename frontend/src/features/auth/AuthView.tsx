@@ -1,3 +1,4 @@
+import { api } from "../../api";
 import { FormEvent, useState } from "react";
 import { Screen } from "../../core/models/screens";
 import { navigate } from "../../core/router";
@@ -9,6 +10,12 @@ export function AuthView({ screen }: { screen: Screen }) {
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
+  // --- NEW: State for registration fields ---
+  const [fullName, setFullName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(false);
@@ -36,22 +43,62 @@ export function AuthView({ screen }: { screen: Screen }) {
     return "";
   });
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (register && !termsAccepted) {
       setError("Please accept the Terms of Service and Privacy Policy.");
       return;
     }
-    // In mock frontend, candidate credentials route into Stage A onboarding directly
-    if (!admin) {
-      if (attachedInvite) {
-        sessionStorage.setItem("active_interview_code", attachedInvite);
+
+    setIsSubmitting(true);
+    setError("");
+
+    try {
+      if (register) {
+        if (admin) {
+          // --- MODIFIED: Use real form state ---
+          await api.registerRecruiter({ 
+            full_name: fullName || "Admin",
+            organization_name: organizationName || "Company", 
+            email, 
+            password, 
+            terms_accepted: true 
+          });
+          navigate("/admin/login");
+        } else {
+          await api.registerStudent({ 
+            full_name: fullName || "Candidate", 
+            email, 
+            password, 
+            terms_accepted: true 
+          });
+          navigate("/candidate/login");
+        }
+      } else {
+        // LOGIN
+        const data = await api.login({ email, password });
+        
+        // --- MODIFIED: Save user details for the rest of the app ---
+        localStorage.setItem("intervia_token", data.access_token);
+        localStorage.setItem("intervia_user_id", data.user.id);
+        localStorage.setItem("intervia_role", data.user.role);
+        
+        if (data.user.role === "STUDENT" || data.user.role === "CANDIDATE") {
+          // If they have an invite code, go to consent. Otherwise go to dashboard.
+          if (attachedInvite) {
+            navigate("/candidate/consent");
+          } else {
+            navigate("/candidate");
+          }
+        } else {
+          navigate("/interviewer");
+        }
       }
-      navigate("/candidate/consent");
-      return;
+    } catch (err: any) {
+      setError(err.message || "Authentication failed. Please check your credentials.");
+    } finally {
+      setIsSubmitting(false);
     }
-    // Admin login routes to interviewer dashboard
-    navigate("/interviewer");
   };
 
   const storyTitle = admin ? (
@@ -150,8 +197,21 @@ export function AuthView({ screen }: { screen: Screen }) {
         <form onSubmit={submit}>
           {register && (
             <>
-              <Field label="FULL NAME" placeholder="Enter your name" />
-              {admin && <Field label="ORGANIZATION" placeholder="Company or team name" />}
+              {/* --- MODIFIED: Connected to State --- */}
+              <Field 
+                label="FULL NAME" 
+                placeholder="Enter your name" 
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+              {admin && (
+                <Field 
+                  label="ORGANIZATION" 
+                  placeholder="Company or team name" 
+                  value={organizationName}
+                  onChange={(e) => setOrganizationName(e.target.value)}
+                />
+              )}
             </>
           )}
 
@@ -242,12 +302,14 @@ export function AuthView({ screen }: { screen: Screen }) {
             </label>
           )}
 
-          <Button type="submit">
-            {register
-              ? "Create account"
-              : admin
-                ? "Sign in to interviews"
-                : "Sign in"}{" "}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting 
+              ? "Please wait..." 
+              : register
+                ? "Create account"
+                : admin
+                  ? "Sign in to interviews"
+                  : "Sign in"}{" "}
             →
           </Button>
 

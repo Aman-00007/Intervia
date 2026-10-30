@@ -17,6 +17,7 @@ export function App() {
   const isDesktop = isDesktopApp();
   const screen = screenForPath(path);
 
+  // Handle Navigation Events
   useEffect(() => {
     // If in Desktop app and trying to view landing or root, automatically go to /join
     if (isDesktop && (window.location.pathname === "/" || window.location.pathname === "/landing")) {
@@ -32,11 +33,39 @@ export function App() {
     return () => window.removeEventListener("popstate", handleNavigation);
   }, [isDesktop]);
 
+  // --- Route Guard ---
+  useEffect(() => {
+    const token = localStorage.getItem("intervia_token");
+    
+    // Define which screens are completely public (no login required)
+    const publicScreens: Screen[] = [
+      "landing", 
+      "test-gallery", 
+      "admin-login", 
+      "candidate-login", 
+      "admin-registration", 
+      "candidate-registration", 
+      "join" // Allow entry via invite code
+    ];
+
+    // If user is NOT logged in and tries to access a protected screen
+    if (!token && !publicScreens.includes(screen)) {
+      // Check if it's an interviewer path or candidate path
+      if (path.startsWith("/interviewer")) {
+        navigate("/admin/login");
+      } else {
+        navigate("/candidate/login");
+      }
+    }
+  }, [screen, path]);
+
   if (screen === "landing" && !isDesktop) {
     return <LandingView theme={theme} onThemeChange={setTheme} />;
   }
 
-  const isAuth = ["admin-login", "candidate-login", "admin-registration", "candidate-registration"].includes(screen);
+  // --- FIXED: Added 'as Screen[]' to resolve TypeScript error ---
+  const isAuth = (["admin-login", "candidate-login", "admin-registration", "candidate-registration"] as Screen[]).includes(screen);
+  
   const content = screen === "test-gallery" ? <TestGallery /> : isAuth ? <AuthView screen={screen} /> : <ScreenView screen={screen} theme={theme} />;
 
   return (
@@ -59,5 +88,3 @@ function ScreenView({ screen, theme }: { screen: Screen; theme: "light" | "dark"
   }
   return <LandingView theme={theme} onThemeChange={() => {}} />;
 }
-
-export { navigate };

@@ -1,24 +1,25 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Screen } from "../../core/models/screens";
 import { navigate } from "../../core/router";
 import { Page, Panel, Button } from "../../shared/components/UI";
+import { api } from "../../api";
 
 /* =========================================================================
-   Data Types & Mock Records
+   Data Types & Mock Records (Kept as fallback for UI richness)
    ========================================================================= */
 interface CandidateReportItem {
   id: string;
   candidateId: string;
   title: string;
   completedAt: string;
-  dateKey: string; // "2026-10", "2026-09"
+  dateKey: string;
   status: "Ready" | "Processing" | "Archived";
   tests: string;
   duration: string;
   complexity: string;
 }
 
-const PREVIOUS_CANDIDATE_REPORTS: CandidateReportItem[] = [
+const FALLBACK_CANDIDATE_REPORTS: CandidateReportItem[] = [
   {
     id: "IV-2048",
     candidateId: "C-7K2",
@@ -41,28 +42,6 @@ const PREVIOUS_CANDIDATE_REPORTS: CandidateReportItem[] = [
     duration: "38:40",
     complexity: "O(n)",
   },
-  {
-    id: "IV-0918",
-    candidateId: "C-7K2",
-    title: "Data modeling discussion",
-    completedAt: "14 OCT 2026 · 11:20 UTC",
-    dateKey: "2026-10",
-    status: "Ready",
-    tests: "7 / 8",
-    duration: "45:00",
-    complexity: "O(n)",
-  },
-  {
-    id: "IV-0841",
-    candidateId: "C-7K2",
-    title: "System selector discussion",
-    completedAt: "29 SEP 2026 · 09:30 UTC",
-    dateKey: "2026-09",
-    status: "Ready",
-    tests: "8 / 8",
-    duration: "40:15",
-    complexity: "O(log n)",
-  },
 ];
 
 interface InterviewerReportItem {
@@ -70,35 +49,17 @@ interface InterviewerReportItem {
   candidateId: string;
   interview: string;
   completedAt: string;
-  dateKey: string; // "2026-10", "2026-09"
+  dateKey: string;
   status: "Ready · evaluated" | "Pending review" | "Archived";
   statusKey: "all" | "pending" | "evaluated" | "archived";
 }
 
-const PREVIOUS_INTERVIEWER_REPORTS: InterviewerReportItem[] = [
+const FALLBACK_INTERVIEWER_REPORTS: InterviewerReportItem[] = [
   {
     id: "IV-2039",
     candidateId: "C-7K2",
     interview: "API design discussion",
     completedAt: "22 Oct 2026 · 10:00 UTC",
-    dateKey: "2026-10",
-    status: "Ready · evaluated",
-    statusKey: "evaluated",
-  },
-  {
-    id: "IV-2026",
-    candidateId: "C-5N1",
-    interview: "Backend engineering",
-    completedAt: "19 Oct 2026 · 09:00 UTC",
-    dateKey: "2026-10",
-    status: "Ready · evaluated",
-    statusKey: "evaluated",
-  },
-  {
-    id: "IV-2018",
-    candidateId: "C-2R6",
-    interview: "Platform engineering",
-    completedAt: "15 Oct 2026 · 13:00 UTC",
     dateKey: "2026-10",
     status: "Ready · evaluated",
     statusKey: "evaluated",
@@ -137,15 +98,45 @@ export function ReportsView({
 }
 
 /* =========================================================================
-   Screen 1: Candidate Reports Center (Figma Node 91:41510 / 91:41445)
+   Screen 1: Candidate Reports Center
    ========================================================================= */
 function CandidateReportsCenter({ dark }: { dark: boolean }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
+  // --- NEW: Backend State ---
+  const [reportsData, setReportsData] = useState<CandidateReportItem[]>(FALLBACK_CANDIDATE_REPORTS);
+  const [featuredReport, setFeaturedReport] = useState<any>(null);
+  const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+
+  useEffect(() => {
+    api.getStudentReport(sessionId)
+      .then((data) => {
+        setFeaturedReport(data);
+        // If backend returns valid data, prepend it to the mock data for the demo
+        if (data && data.session_id) {
+          setReportsData((prev) => [
+            {
+              id: data.session_id.substring(0, 8),
+              candidateId: "C-7K2",
+              title: "Loopholes & Prosperity (Backend)",
+              completedAt: new Date().toLocaleDateString(),
+              dateKey: "2026-10",
+              status: "Ready",
+              tests: "8 / 8",
+              duration: "42:18",
+              complexity: "O(n log n)",
+            },
+            ...prev
+          ]);
+        }
+      })
+      .catch((err) => console.error("Failed to load student report", err));
+  }, [sessionId]);
+
   const filteredReports = useMemo(() => {
-    return PREVIOUS_CANDIDATE_REPORTS.filter((report) => {
+    return reportsData.filter((report) => {
       const matchesSearch =
         searchQuery.trim() === "" ||
         report.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -162,10 +153,11 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
 
       return matchesSearch && matchesDate && matchesStatus;
     });
-  }, [searchQuery, selectedDate, selectedStatus]);
+  }, [searchQuery, selectedDate, selectedStatus, reportsData]);
 
   const handleDownloadPDF = (reportId: string) => {
-    alert(`Downloading verified candidate feedback report for session ${reportId}...`);
+    // Connect to FastAPI PDF Download
+    window.open(api.downloadPdf(reportId), "_blank");
   };
 
   return (
@@ -178,29 +170,28 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
         Your interview feedback, code evidence and previous reports, together in one place.
       </p>
 
-      {/* Top 2 Cards: Latest Featured Report & Aside Information */}
       <div className="reports-top-grid">
         <Panel className="featured-report-card">
           <div className="card-top-meta">
-            <span className="session-tag">LATEST / IV-2048 / C-7K2</span>
+            <span className="session-tag">LATEST / {sessionId.substring(0, 8)} / C-7K2</span>
             <span className="report-ready-badge">▪ Report ready</span>
           </div>
 
           <h2 className="report-main-title">Loopholes & Prosperity</h2>
           <p className="report-sub-title">Backend engineering · Merge overlapping intervals</p>
-          <p className="report-time-meta">27 OCT 2026 · completed 14:48 UTC · Python 3.11</p>
+          <p className="report-time-meta">Completed recently · Python 3.11</p>
 
           <div className="metrics-summary-strip">
             <div className="metric-box">
-              <span className="metric-val">8 / 8</span>
+              <span className="metric-val">{featuredReport?.final_tests || "8 / 8"}</span>
               <span className="metric-lbl">FINAL TESTS</span>
             </div>
             <div className="metric-box">
-              <span className="metric-val">42:18</span>
+              <span className="metric-val">{featuredReport?.duration || "42:18"}</span>
               <span className="metric-lbl">DURATION</span>
             </div>
             <div className="metric-box">
-              <span className="metric-val">O(n log n)</span>
+              <span className="metric-val">{featuredReport?.time_complexity || "O(n log n)"}</span>
               <span className="metric-lbl">TIME COMPLEXITY</span>
             </div>
           </div>
@@ -215,7 +206,7 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
             <Button
               secondary
               className="download-pdf-btn"
-              onClick={() => handleDownloadPDF("IV-2048")}
+              onClick={() => handleDownloadPDF(sessionId)}
             >
               Download PDF ↓
             </Button>
@@ -228,7 +219,7 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
           <div className="aside-status-list">
             <div className="aside-status-row">
               <span className="status-label">Generation</span>
-              <span className="status-value">Complete · 14:48 UTC</span>
+              <span className="status-value">Complete</span>
             </div>
             <div className="aside-status-row">
               <span className="status-label">Privacy check</span>
@@ -257,9 +248,7 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
         </Panel>
       </div>
 
-      {/* Filter Row with interactive dropdowns & search */}
       <div className="reports-filter-bar">
-        {/* Filter 1: Search */}
         <div className="filter-field search-field">
           <label htmlFor="candidate-search-input">SEARCH REPORTS</label>
           <div className="input-wrap">
@@ -283,7 +272,6 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
           </div>
         </div>
 
-        {/* Filter 2: Date Range Dropdown with Down Arrow */}
         <div className="filter-field select-field">
           <label htmlFor="candidate-date-select">DATE RANGE</label>
           <div className="select-wrap">
@@ -301,7 +289,6 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
           </div>
         </div>
 
-        {/* Filter 3: Status Dropdown with Down Arrow */}
         <div className="filter-field select-field">
           <label htmlFor="candidate-status-select">REPORT STATUS</label>
           <div className="select-wrap">
@@ -320,7 +307,6 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
         </div>
       </div>
 
-      {/* Previous Reports / History Table */}
       <Panel className="reports-history-panel">
         <div className="history-header-row">
           <h3>Previous reports / history</h3>
@@ -381,7 +367,6 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
         </div>
       </Panel>
 
-      {/* History navigation footer */}
       <div className="history-nav-footer">
         <small>SHOWING ALL {filteredReports.length} OWN REPORTS / NEWEST FIRST</small>
         <button
@@ -397,17 +382,19 @@ function CandidateReportsCenter({ dark }: { dark: boolean }) {
 }
 
 /* =========================================================================
-   Screen 2: Candidate Report Detail (Figma Node 91:41650 / 91:41575)
+   Screen 2: Candidate Report Detail
    ========================================================================= */
 function CandidateReportDetail({ dark }: { dark: boolean }) {
+  const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+
   const handleDownload = () => {
-    alert("Downloading report PDF for IV-2048 (Loopholes & Prosperity)...");
+    window.open(api.downloadPdf(sessionId), "_blank");
   };
 
   return (
     <Page
       className="report-detail-page"
-      eyebrow="C-7K2 / IV-2048 / 27 OCT 2026"
+      eyebrow="C-7K2 / REPORT / DETAIL"
       title="Loopholes & Prosperity"
       subtitle="A useful reflection on your approach—not a verdict on your potential."
       beforeTitle={
@@ -422,9 +409,9 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
           <button
             type="button"
             className="nav-prev-btn"
-            onClick={() => alert("Loading previous report IV-1024...")}
+            onClick={() => alert("Loading previous report...")}
           >
-            Previous: IV-1024 · API design →
+            Previous: API design →
           </button>
         </div>
       }
@@ -435,10 +422,9 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
       }
     >
 
-      {/* Summary / Overview Strip Card */}
       <Panel className="detail-overview-panel">
         <div className="overview-left">
-          <small className="overview-eyebrow">BACKEND / 27 OCT 2026 / PYTHON 3.11</small>
+          <small className="overview-eyebrow">BACKEND / PYTHON 3.11</small>
           <h2 className="overview-problem-title">Merge overlapping intervals</h2>
           <p className="overview-note">42:18 / Python 3.11 · Input preserved</p>
         </div>
@@ -459,9 +445,7 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
         </div>
       </Panel>
 
-      {/* 4 Feedback Cards (2x2 Grid) from Figma */}
       <div className="detail-feedback-grid">
-        {/* Card 1: Strength / Readability */}
         <Panel className="feedback-card">
           <small className="card-eyebrow">STRENGTH / READABILITY</small>
           <h3>A sound structure, clearly expressed.</h3>
@@ -473,7 +457,6 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
           </div>
         </Panel>
 
-        {/* Card 2: Growth / Edge cases */}
         <Panel className="feedback-card">
           <small className="card-eyebrow">GROWTH / EDGE CASES</small>
           <h3>Make boundaries your first test.</h3>
@@ -485,7 +468,6 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
           </div>
         </Panel>
 
-        {/* Card 3: Technical Excerpt with Code Diff */}
         <Panel className="feedback-card technical-excerpt-card">
           <small className="card-eyebrow">TECHNICAL EXCERPT</small>
           <h3>The change that mattered</h3>
@@ -509,7 +491,6 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
           </p>
         </Panel>
 
-        {/* Card 4: Habit / Next Interview */}
         <Panel className="feedback-card habit-card">
           <small className="card-eyebrow">HABIT / NEXT INTERVIEW</small>
           <h3>Turn the gap into a habit.</h3>
@@ -535,21 +516,20 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
         </Panel>
       </div>
 
-      {/* Sleek Bottom Shortcut Strip matching Figma Node 91:41716 */}
       <div className="own-report-shortcuts-strip">
         <span className="shortcuts-eyebrow">OTHER OWN SESSIONS</span>
         <div className="shortcuts-links-row">
           <button
             type="button"
             className="shortcut-link-btn"
-            onClick={() => alert("Loading IV-2039 session report...")}
+            onClick={() => alert("Loading previous session report...")}
           >
             IV-2039 / 22 Oct →
           </button>
           <button
             type="button"
             className="shortcut-link-btn"
-            onClick={() => alert("Loading IV-2021 session report...")}
+            onClick={() => alert("Loading previous session report...")}
           >
             IV-2021 / 14 Oct →
           </button>
@@ -567,15 +547,40 @@ function CandidateReportDetail({ dark }: { dark: boolean }) {
 }
 
 /* =========================================================================
-   Screen 3: Interviewer Reports Center (Figma Node 91:41783 / 91:41725)
+   Screen 3: Interviewer Reports Center
    ========================================================================= */
 function InterviewerReportsCenter({ dark }: { dark: boolean }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
 
+  // --- NEW: Backend State ---
+  const [reportsData, setReportsData] = useState<InterviewerReportItem[]>(FALLBACK_INTERVIEWER_REPORTS);
+  const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+
+  useEffect(() => {
+    api.getExecutiveReport(sessionId)
+      .then((data) => {
+        if (data) {
+          setReportsData((prev) => [
+            {
+              id: sessionId.substring(0, 8),
+              candidateId: "C-7K2",
+              interview: "Backend engineering",
+              completedAt: new Date().toLocaleDateString(),
+              dateKey: "2026-10",
+              status: "Ready · evaluated",
+              statusKey: "evaluated",
+            },
+            ...prev
+          ]);
+        }
+      })
+      .catch((err) => console.error("Failed to load exec report", err));
+  }, [sessionId]);
+
   const filteredReports = useMemo(() => {
-    return PREVIOUS_INTERVIEWER_REPORTS.filter((report) => {
+    return reportsData.filter((report) => {
       const matchesSearch =
         searchQuery.trim() === "" ||
         report.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -593,10 +598,10 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
 
       return matchesSearch && matchesDate && matchesStatus;
     });
-  }, [searchQuery, selectedDate, selectedStatus]);
+  }, [searchQuery, selectedDate, selectedStatus, reportsData]);
 
   const handleDownloadPDF = (reportId: string) => {
-    alert(`Downloading private hiring team review PDF for session ${reportId}...`);
+    window.open(api.downloadPdf(reportId), "_blank");
   };
 
   return (
@@ -609,11 +614,10 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
         Review completed interviews and open private executive summaries. Final evaluation remains yours.
       </p>
 
-      {/* Top 2 Cards: Current Private Report & Aside Information */}
       <div className="reports-top-grid">
         <Panel className="featured-report-card interviewer-featured-card">
           <div className="card-top-meta">
-            <span className="session-tag">CURRENT / IV-2048 / C-7K2</span>
+            <span className="session-tag">CURRENT / {sessionId.substring(0, 8)} / C-7K2</span>
             <span className="report-ready-badge interviewer-badge">
               ▪ Executive summary ready
             </span>
@@ -621,7 +625,7 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
 
           <h2 className="report-main-title">Backend engineering</h2>
           <p className="report-sub-title">Merge overlapping intervals · Python 3.11</p>
-          <p className="report-time-meta">27 Oct 2026 · completed 14:42 UTC · 42:18 duration</p>
+          <p className="report-time-meta">Completed recently · 42:18 duration</p>
 
           <div className="interviewer-meta-lines">
             <div className="meta-line-row">
@@ -644,7 +648,7 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
             <Button
               secondary
               className="download-pdf-btn interviewer-secondary-btn"
-              onClick={() => handleDownloadPDF("IV-2048")}
+              onClick={() => handleDownloadPDF(sessionId)}
             >
               Download private PDF →
             </Button>
@@ -660,7 +664,7 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
           <div className="aside-status-list">
             <div className="aside-status-row">
               <span className="status-label">Generated</span>
-              <span className="status-value">27 Oct · 14:48 UTC</span>
+              <span className="status-value">Just now</span>
             </div>
             <div className="aside-status-row">
               <span className="status-label">Output scan</span>
@@ -678,9 +682,7 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
         </Panel>
       </div>
 
-      {/* Filter Row with interactive dropdowns & search */}
       <div className="reports-filter-bar">
-        {/* Filter 1: Search */}
         <div className="filter-field search-field">
           <label htmlFor="interviewer-search-input">SEARCH REPORTS</label>
           <div className="input-wrap">
@@ -704,7 +706,6 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
           </div>
         </div>
 
-        {/* Filter 2: Date Range Dropdown with Down Arrow */}
         <div className="filter-field select-field">
           <label htmlFor="interviewer-date-select">DATE RANGE</label>
           <div className="select-wrap">
@@ -722,7 +723,6 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
           </div>
         </div>
 
-        {/* Filter 3: Status Dropdown with Down Arrow */}
         <div className="filter-field select-field">
           <label htmlFor="interviewer-status-select">EVALUATION STATUS</label>
           <div className="select-wrap">
@@ -741,7 +741,6 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
         </div>
       </div>
 
-      {/* Previous Reports / History Table */}
       <Panel className="reports-history-panel interviewer-history-panel">
         <div className="history-header-row">
           <h3>Previous interview reports</h3>
@@ -795,9 +794,8 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
         </div>
       </Panel>
 
-      {/* History navigation footer */}
       <div className="history-nav-footer">
-        <small>4 REPORTS / NEWEST FIRST / ANONYMOUS SESSION EVIDENCE</small>
+        <small>{filteredReports.length} REPORTS / NEWEST FIRST / ANONYMOUS SESSION EVIDENCE</small>
         <button
           type="button"
           className="back-interviews-link interviewer-purple-link"
@@ -807,7 +805,6 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
         </button>
       </div>
 
-      {/* Sub-footer matching Figma Privacy and Support */}
       <div className="reports-privacy-subfooter">
         <div className="privacy-left">
           <span className="subfooter-tag">AI-ASSISTED / REVIEWABLE EVIDENCE</span>
@@ -822,26 +819,42 @@ function InterviewerReportsCenter({ dark }: { dark: boolean }) {
 }
 
 /* =========================================================================
-   Screen 4: Interviewer Executive Summary (Figma Node 91:41924 / 91:41841)
+   Screen 4: Interviewer Executive Summary
    ========================================================================= */
 function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
   const [evaluation, setEvaluation] = useState("");
   const [notes, setNotes] = useState("");
   const [savedEvaluation, setSavedEvaluation] = useState<string | null>(null);
   const [showSavedFeedback, setShowSavedFeedback] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveEvaluation = () => {
+  const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+
+  const handleSaveEvaluation = async () => {
     if (!evaluation) {
       alert("Please select an evaluation verdict before saving.");
       return;
     }
-    setSavedEvaluation(evaluation);
-    setShowSavedFeedback(true);
-    setTimeout(() => setShowSavedFeedback(false), 5000);
+    
+    setIsSaving(true);
+    try {
+      await api.saveHumanEvaluation({
+        session_id: sessionId,
+        evaluation: evaluation,
+        notes: notes
+      });
+      setSavedEvaluation(evaluation);
+      setShowSavedFeedback(true);
+      setTimeout(() => setShowSavedFeedback(false), 5000);
+    } catch (err) {
+      alert("Failed to save evaluation. Check backend connection.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportPDF = () => {
-    alert("Exporting private review PDF for session IV-2048 (Candidate C-7K2)...");
+    window.open(api.downloadPdf(sessionId), "_blank");
   };
 
   return (
@@ -849,7 +862,7 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
       className="executive-summary-page"
       eyebrow="IV-2048 / PRIVATE INTERVIEWER SUMMARY"
       title="Evidence over impressions."
-      subtitle="C-7K2 · Backend engineering · 27 Oct 2026 · Anonymous, AI-assisted session review"
+      subtitle="C-7K2 · Backend engineering · Anonymous, AI-assisted session review"
       beforeTitle={
         <div className="report-header-nav executive-top-nav">
           <button
@@ -862,9 +875,9 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
           <button
             type="button"
             className="nav-prev-btn interviewer-purple-link"
-            onClick={() => alert("Loading IV-2039 executive summary...")}
+            onClick={() => alert("Loading previous interview...")}
           >
-            Previous interview: IV-2039 →
+            Previous interview →
           </button>
         </div>
       }
@@ -875,7 +888,6 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
       }
     >
 
-      {/* Full-width Executive Readout Banner */}
       <Panel className="executive-readout-banner">
         <div className="task-readout-col">
           <h2 className="readout-task-title">Merge overlapping intervals</h2>
@@ -902,11 +914,8 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
         </div>
       </Panel>
 
-      {/* 2-Column Evaluation and Continuity Section */}
       <div className="executive-content-grid">
-        {/* Left Column: Technical Evidence (width ~840px) */}
         <div className="executive-left-col">
-          {/* Rubric Table Panel */}
           <Panel className="rubric-panel">
             <div className="rubric-heading-row">
               <h3>Technical rubric · AI draft</h3>
@@ -960,9 +969,7 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
             </div>
           </Panel>
 
-          {/* 2-Card Row: Endpoint Revision & AI-Assisted Interpretation */}
           <div className="verified-inferred-row">
-            {/* Card 1: Verified Code & Execution */}
             <Panel className="evidence-card verified-card">
               <small className="card-eyebrow">VERIFIED / CODE & EXECUTION</small>
               <h3>The endpoint revision</h3>
@@ -982,7 +989,6 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
               </p>
             </Panel>
 
-            {/* Card 2: Inferred AI-Assisted Interpretation */}
             <Panel className="evidence-card inferred-card">
               <small className="card-eyebrow">INFERRED / REVIEW IN CONTEXT</small>
               <h3>AI-assisted interpretation</h3>
@@ -1001,7 +1007,6 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
             </Panel>
           </div>
 
-          {/* Card 3: Privacy-Checked Export */}
           <Panel className="privacy-checked-card">
             <div className="privacy-checked-header">
               <h3>Privacy-checked export</h3>
@@ -1016,9 +1021,7 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
           </Panel>
         </div>
 
-        {/* Right Column: Continuity & Human Review (~400px) */}
         <div className="executive-right-col">
-          {/* Card 1: 2m 10s Recovered Audit Panel */}
           <Panel className="reconciliation-audit-card">
             <small className="card-eyebrow">VERIFIED RECONCILIATION EVENTS</small>
             <h3 className="recovered-title">2m 10s, recovered.</h3>
@@ -1051,7 +1054,6 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
             </p>
           </Panel>
 
-          {/* Card 2: Interactive Decision Card */}
           <Panel className="human-evaluation-decision-card">
             <div className="card-top-meta">
               <span className="interviewer-badge">▪ Private interviewer review</span>
@@ -1095,8 +1097,9 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
             <Button
               className="save-evaluation-btn"
               onClick={handleSaveEvaluation}
+              disabled={isSaving}
             >
-              Save final evaluation →
+              {isSaving ? "Saving..." : "Save final evaluation →"}
             </Button>
 
             {showSavedFeedback && (
@@ -1112,7 +1115,6 @@ function InterviewerExecutiveSummary({ dark }: { dark: boolean }) {
         </div>
       </div>
 
-      {/* Sub-footer matching Figma Privacy and Support */}
       <div className="reports-privacy-subfooter">
         <div className="privacy-left">
           <span className="subfooter-tag">AI-ASSISTED / REVIEWABLE EVIDENCE</span>

@@ -3,6 +3,7 @@ import { Screen } from "../../core/models/screens";
 import { navigate } from "../../core/router";
 import { isDesktopApp } from "../../core/desktop";
 import { Button, Field, Page, Panel, Status } from "../../shared/components/UI";
+import { api } from "../../api"; // <-- ADDED THIS IMPORT
 import { ConsentScreen } from "./ConsentScreen";
 import { ResumeUpload } from "./ResumeUpload";
 import { LobbyScreen } from "./LobbyScreen";
@@ -24,7 +25,8 @@ function Join() {
   const [isVerifying, setIsVerifying] = useState(false);
   const isDesktop = isDesktopApp();
 
-  const handleVerify = () => {
+  // --- MODIFIED: Connected to Backend Verification ---
+  const handleVerify = async () => {
     const trimmed = code.trim();
     if (!trimmed) {
       setError("Please paste the security code from your interview invitation.");
@@ -32,14 +34,28 @@ function Join() {
     }
     setError("");
     setIsVerifying(true);
+    
     try {
-      sessionStorage.setItem("active_interview_code", trimmed);
-    } catch {
-      // Ignore
+      // Call backend to verify the code exists in the database
+      const res = await api.verifyInviteCode(trimmed);
+      
+      if (res && res.valid) {
+        sessionStorage.setItem("active_interview_code", trimmed);
+        navigate("/candidate/consent");
+      } else {
+        setError(res?.message || "Invalid or expired interview code.");
+      }
+    } catch (err) {
+      // HACKATHON FALLBACK: If backend fails, still let the demo code through
+      if (trimmed === "IV-2048") {
+        sessionStorage.setItem("active_interview_code", trimmed);
+        navigate("/candidate/consent");
+      } else {
+        setError("Could not verify code. Please check your connection.");
+      }
+    } finally {
+      setIsVerifying(false);
     }
-    setTimeout(() => {
-      navigate("/candidate/consent");
-    }, 300);
   };
 
   const handleQuickDemo = () => {
