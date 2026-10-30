@@ -211,24 +211,36 @@ function CreateInterview() {
     ]);
   };
 
-  // --- NEW: Connect to Backend API ---
+  // --- FIXED: Connect to Backend API with Error Handling ---
   const handleSaveAndSend = async () => {
     setIsSubmitting(true);
     try {
-      // Combine date and time strings into a valid ISO date string
-      const dateTimeStr = new Date(`${date}T${time}:00Z`).toISOString();
+      // 1. Safe Date Parsing
+      let scheduledDate = new Date();
+      try {
+        const parsedDate = new Date(`${date}T${time}:00Z`);
+        if (!isNaN(parsedDate.getTime())) {
+          scheduledDate = parsedDate;
+        }
+      } catch {
+        console.warn("Invalid date format, defaulting to tomorrow.");
+        scheduledDate.setDate(scheduledDate.getDate() + 1);
+      }
       
+      // 2. Call the API
       await api.createInvitation({
-        role_title: title,
-        duration_minutes: Number(duration),
-        scheduled_at: dateTimeStr,
-        candidate_email: candidateEmail,
+        role_title: title || "Backend Engineering",
+        duration_minutes: Number(duration) || 45,
+        scheduled_at: scheduledDate.toISOString(),
+        candidate_email: candidateEmail || "candidate@example.com",
       });
       
       alert("Invitation sent successfully!");
       navigate("/interviewer");
-    } catch (error) {
-      alert("Failed to send invitation. Please check backend connection.");
+    } catch (error: any) {
+      // 3. Show the REAL backend error
+      console.error("Backend Error Details:", error);
+      alert(`Failed to send invitation:\n${error.message || "Unknown error"}`);
     } finally {
       setIsSubmitting(false);
     }

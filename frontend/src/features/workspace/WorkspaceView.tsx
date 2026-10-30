@@ -52,7 +52,7 @@ export function WorkspaceView({
   const isCandidateShared = screen === "candidate-shared" || (!isInterviewer && candidateVisible);
 
   // GET REAL SESSION ID FROM LOCAL STORAGE
-  const sessionId = localStorage.getItem("intervia_session_id") || "demo-session";
+  const sessionId = localStorage.getItem("intervia_session_id") || "00000000-0000-4000-8000-000000000000";
 
   return (
     <WebSocketProvider sessionId={sessionId}>
@@ -334,6 +334,7 @@ function WorkspaceContent({
     }
   };
 
+    
   const handleRunNemotron = async (query: string) => {
     setNemotronLoading(true);
     try {
@@ -341,17 +342,18 @@ function WorkspaceContent({
         session_id: sessionId,
         prompt_text: query,
         current_code_snapshot: code,
-        sandbox_error_context: "Run #2 failed on touching endpoints: [[1,3],[3,5]] returned [[1,3],[3,5]], expected [[1,5]].",
+        sandbox_error_context: "Run #2 failed on touching endpoints.",
       });
       if (res && res.response_text) {
         setNemotronOutput(res.response_text);
       }
     } catch {
-      setNemotronOutput("NVIDIA Nemotron 3 is analyzing your request. (Backend fallback)");
+      setNemotronOutput("AI assistant is temporarily unavailable. Check backend.");
     } finally {
       setNemotronLoading(false);
     }
   };
+    
 
   const handleStageClarification = (hintText: string) => {
     let cleanHint = hintText;

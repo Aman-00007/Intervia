@@ -16,9 +16,23 @@ class OnboardingRepository:
         self.session = session
 
     async def create_candidate_identity(self, user_id: uuid.UUID, data: OnboardingRequest) -> CandidateIdentity:
-        """Saves the real identity into Physical Table 1."""
+        """Saves the real identity, or updates it if it already exists."""
+        # 1. Check if the candidate already exists
+        existing_candidate = await self.session.get(CandidateIdentity, user_id)
+        
+        if existing_candidate:
+            # Update the existing record
+            existing_candidate.real_full_name = data.real_full_name
+            existing_candidate.real_email = data.real_email
+            existing_candidate.real_phone = data.real_phone
+            existing_candidate.college_id = data.college_id
+            existing_candidate.github_username = data.github_username
+            await self.session.flush()
+            return existing_candidate
+            
+        # 2. If they don't exist, create a new one
         candidate = CandidateIdentity(
-            user_id=user_id,  # <-- Make sure this is here!
+            user_id=user_id,
             real_full_name=data.real_full_name,
             real_email=data.real_email,
             real_phone=data.real_phone,
@@ -26,8 +40,9 @@ class OnboardingRepository:
             github_username=data.github_username
         )
         self.session.add(candidate)
-        await self.session.flush() # Flushes to get the auto-generated user_id
+        await self.session.flush()
         return candidate
+
     async def record_dpdp_consent(self, user_id: uuid.UUID, session_id: uuid.UUID, data: OnboardingRequest) -> DPDPConsentRecord:
         """Saves the legal consent into Physical Table 2."""
         consent_record = DPDPConsentRecord(

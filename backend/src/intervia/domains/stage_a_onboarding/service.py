@@ -48,18 +48,28 @@ class OnboardingService:
             github_commits=github_commits
         )
         
-        # 5. Call Nebius Nemotron model (ONLY cleaned text goes to AI)
-        result, telemetry = await model_router.generate_structured(
-            tier=NemotronTier.SUPER,
-            system_prompt="You are an expert technical interviewer. Return ONLY a valid JSON object.",
-            user_prompt=prompt,
-            response_schema=GeneratedQuestionsResponse,
-            temperature=0.2
-        )
+        # 5. Call Nebius Nemotron model (WITH FALLBACK)
+        try:
+            result, telemetry = await model_router.generate_structured(
+                tier=NemotronTier.SUPER,
+                system_prompt="You are an expert technical interviewer. Return ONLY a valid JSON object.",
+                user_prompt=prompt,
+                response_schema=GeneratedQuestionsResponse,
+                temperature=0.2
+            )
+            questions = result.questions
+        except Exception as e:
+            print(f"🚨 NEBRUS AI CRASHED (Questions): {str(e)}")
+            # Fallback questions so the hackathon demo never freezes
+            questions = [
+                "Can you explain the time complexity of your merge intervals approach?",
+                "How would you handle edge cases where intervals touch but don't overlap?",
+                "What happens if the input list is empty?"
+            ]
         
         return {
             "scrubbed_text": scrubbed_resume,
-            "generated_questions": result.questions
+            "generated_questions": questions
         }
 
     @staticmethod
@@ -81,16 +91,25 @@ class OnboardingService:
         # 3. Generate 2 hints using Nemotron Nano (fast & cheap)
         prompt = f"Based on this resume, generate 2 short, high-level interview hints (e.g., 'Ask about time complexity').\nResume: {cleaned_resume_text}"
         
-        result, _ = await model_router.generate_structured(
-            tier=NemotronTier.NANO,
-            system_prompt="Return ONLY a JSON object with a 'hints' list containing exactly 2 strings.",
-            user_prompt=prompt,
-            response_schema=GeneratedHintsResponse,
-            temperature=0.5
-        )
+        try:
+            result, _ = await model_router.generate_structured(
+                tier=NemotronTier.NANO,
+                system_prompt="Return ONLY a JSON object with a 'hints' list containing exactly 2 strings.",
+                user_prompt=prompt,
+                response_schema=GeneratedHintsResponse,
+                temperature=0.5
+            )
+            hints = result.hints
+        except Exception as e:
+            print(f"🚨 NEBRUS AI CRASHED (Hints): {str(e)}")
+            # Fallback hints
+            hints = [
+                "Consider edge cases like empty lists or single elements.",
+                "Think about the time and space complexity of your solution."
+            ]
         
         # 4. Encrypt the hints using your AES-256 vault
-        hints_dict = {f"hint_{i}": hint for i, hint in enumerate(result.hints)}
+        hints_dict = {f"hint_{i}": hint for i, hint in enumerate(hints)}
         encrypted_hints_bytes = aes_vault.encrypt_dict(hints_dict)
         
         # Convert bytes to base64 string for JSON transport
