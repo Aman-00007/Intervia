@@ -1,0 +1,1 @@
+# src/intervia/domains/dashboard/__init__.py
